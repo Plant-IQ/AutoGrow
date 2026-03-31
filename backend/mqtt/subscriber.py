@@ -20,11 +20,13 @@ SENSOR_TOPIC_SUFFIX = "/autogrow/sensors"
 
 
 def _record_combined_sensor(payload: dict):
-    soil = payload.get("soil_pct") or payload.get("soil")
+    soil_raw = payload.get("soil_pct")
+    soil = soil_raw if soil_raw is not None else payload.get("soil")
     temp1 = payload.get("temp1")
     temp2 = payload.get("temp2")
     humidity = payload.get("humidity")
-    light = payload.get("light_lux") or payload.get("light")
+    light_raw = payload.get("light_lux")
+    light = light_raw if light_raw is not None else payload.get("light")
     vibr = payload.get("vibration")
 
     try:
