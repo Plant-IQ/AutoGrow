@@ -5,18 +5,25 @@ import PumpStatus from "@/components/PumpStatus";
 import SensorChart from "@/components/SensorChart";
 import StageCard from "@/components/StageCard";
 import PlantLight from "@/components/PlantLight";
+import Image from "next/image";
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-gradient-to-b from-slate-50 to-white text-slate-900">
-      <header className="border-b border-slate-200 bg-white/70 backdrop-blur">
+    <div className="min-h-screen bg-[#F1E4C3] to-white text-slate-900">
+      <header className="border-b border-slate-200/70 bg-white backdrop-blur">
         <div className="mx-auto flex max-w-6xl items-center justify-between px-6 py-4">
-          <div>
-            <p className="text-xs uppercase tracking-[0.2em] text-emerald-600">AutoGrow</p>
-            <h1 className="text-2xl font-semibold">Grow room overview</h1>
+          <div className="flex items-center gap-3">
+            <Image src="/assets/logos/AutoGrow.png" alt="AutoGrow logo" width={150} height={50} priority />
+            <div className="h-10 w-px bg-slate-200" />
+            <div>
+              <p className="text-xs uppercase tracking-[0.2em] text-slate-500">Dashboard</p>
+              <h1 className="text-2xl font-semibold">Grow room overview</h1>
+            </div>
           </div>
-          <div className="rounded-full bg-emerald-50 px-3 py-1 text-sm font-medium text-emerald-700">
-            Live mock data
+          <div className="flex items-center gap-3">
+            <div className="rounded-full border border-[color:var(--brand-primary)]/30 bg-[color:var(--brand-primary)]/10 px-3 py-1 text-sm font-medium text-[color:var(--brand-primary)]">
+              Live mock data
+            </div>
           </div>
         </div>
       </header>

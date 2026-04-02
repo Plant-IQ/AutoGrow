@@ -33,7 +33,7 @@ export default function ObsForm() {
     }
   }
 
-  function handleChange(field: string, value: any) {
+  function handleChange(field: string, value: number | boolean) {
     setValues((prev) => ({ ...prev, [field]: value }));
   }
 

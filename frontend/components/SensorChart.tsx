@@ -60,10 +60,10 @@ export default function SensorChart() {
               labelStyle={{ color: "#0f172a" }}
             />
             <Legend wrapperStyle={{ fontSize: 12 }} />
-            <Line yAxisId="left" type="monotone" dataKey="soil" stroke="#22c55e" strokeWidth={2} dot={false} name="Soil %" />
-            <Line yAxisId="left" type="monotone" dataKey="humidity" stroke="#0ea5e9" strokeWidth={2} dot={false} name="Humidity %" />
-            <Line yAxisId="left" type="monotone" dataKey="temp" stroke="#f97316" strokeWidth={2} dot={false} name="Temp °C" />
-            <Line yAxisId="right" type="monotone" dataKey="light" stroke="#6366f1" strokeWidth={2} dot={false} name="Light lux" />
+            <Line yAxisId="left" type="monotone" dataKey="soil" stroke="#85c88a" strokeWidth={2} dot={false} name="Soil %" />
+            <Line yAxisId="left" type="monotone" dataKey="humidity" stroke="#6fb2d2" strokeWidth={2} dot={false} name="Humidity %" />
+            <Line yAxisId="left" type="monotone" dataKey="temp" stroke="#ebd671" strokeWidth={2} dot={false} name="Temp °C" />
+            <Line yAxisId="right" type="monotone" dataKey="light" stroke="#1f7aa6" strokeWidth={2} dot={false} name="Light lux" />
           </LineChart>
         </ResponsiveContainer>
       </div>

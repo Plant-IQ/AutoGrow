@@ -55,7 +55,7 @@ export default function PlantLight() {
         <span className="text-xs text-slate-500">{activePlant.label}</span>
       </div>
       <div className="flex items-center gap-3">
-        <span className="h-10 w-10 rounded-full border border-slate-200 shadow-inner" style={{ background: light.color }} />
+        <span className="h-12 w-12 rounded-full border border-[color:var(--brand-primary)]/30 shadow-inner" style={{ background: light.color }} />
         <div>
           <p className="text-sm text-slate-500">Current color</p>
           <p className="text-lg font-semibold">{light.color}</p>

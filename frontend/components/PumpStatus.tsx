@@ -22,7 +22,7 @@ export default function PumpStatus() {
     <div className="card">
       <div className="flex items-center gap-2">
         <span
-          className={`h-3 w-3 rounded-full ${data.ok ? "bg-emerald-500 shadow-[0_0_0_6px_rgba(16,185,129,0.2)]" : "bg-red-500"}`}
+          className={`h-3 w-3 rounded-full ${data.ok ? "bg-[color:var(--brand-secondary)] shadow-[0_0_0_6px_rgba(133,200,138,0.25)]" : "bg-red-500"}`}
         />
         <p className="label">Pump vibration</p>
       </div>

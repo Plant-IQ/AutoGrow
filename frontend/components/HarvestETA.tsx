@@ -24,7 +24,7 @@ export default function HarvestETA() {
     <div className="card">
       <p className="label">Estimated harvest</p>
       <div className="flex items-end gap-3">
-        <p className="text-4xl font-semibold text-emerald-600">{data.days_to_harvest}</p>
+        <p className="text-4xl font-semibold text-[color:var(--brand-secondary)]">{data.days_to_harvest}</p>
         <span className="text-sm text-slate-600">days</span>
       </div>
       <p className="text-sm text-slate-500">Projected date: {date}</p>
