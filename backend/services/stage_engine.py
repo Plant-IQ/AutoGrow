@@ -1,18 +1,15 @@
-"""Stage lookup helper.
+"""Stage lookup helper."""
 
-Keeps the stage logic in one place so routers stay thin. Today we simply read
-the most recent GrowthStage row and default to Vegetative when none exists.
-"""
-
+import asyncio
 from datetime import datetime
 from typing import Tuple
 
 from sqlmodel import Session, select
 
 from db.sqlite import GrowthStage
+from mqtt.publisher import publish_stage_update
 
-
-DEFAULT_STAGE = (2, "Vegetative")  # index, name
+DEFAULT_STAGE = (2, "Vegetative")
 
 
 def get_current_stage(session: Session) -> Tuple[int, str, int]:
@@ -40,3 +37,23 @@ def upsert_stage(session: Session, stage_index: int, stage_name: str):
     else:
         session.add(GrowthStage(stage_index=stage_index, stage_name=stage_name, started_at=now))
     session.commit()
+
+
+# MQTT stage scheduler
+async def schedule_stage_transitions(
+    plant_id: int,
+    seed_days: int,
+    veg_days: int,
+    bloom_days: int,
+) -> None:
+    """
+    state 0 → ส่งทันทีตอน start (เรียกจาก router)
+    state 1 → หลังครบ seed_days  (เข้า Veg)
+    state 2 → หลังครบ veg_days   (เข้า Bloom)
+    """
+    await asyncio.sleep(seed_days * 86400)
+    publish_stage_update(plant_id, 1)
+
+    if bloom_days > 0:
+        await asyncio.sleep(veg_days * 86400)
+        publish_stage_update(plant_id, 2)

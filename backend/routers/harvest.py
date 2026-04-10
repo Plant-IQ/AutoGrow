@@ -1,44 +1,38 @@
-# from datetime import datetime, timedelta
-
-# from fastapi import APIRouter
-
-# from models import HarvestETAResponse, ErrorResponse
-
-# router = APIRouter()
-
-
-# @router.get(
-#     "/",
-#     response_model=HarvestETAResponse,
-#     summary="Estimated days to harvest",
-#     description="Simple linear projection based on current growth data. Mocked until trained on real observations.",
-#     responses={
-#         422: {"model": ErrorResponse, "description": "Validation error"},
-#         500: {
-#             "model": ErrorResponse,
-#             "description": "Internal server error",
-#             "content": {"application/json": {"example": {"detail": "Database unavailable"}}},
-#         },
-#     },
-# )
-
-# def get_harvest_eta():
-#     days = 18
-#     return HarvestETAResponse(
-#         days_to_harvest=days,
-#         projected_date=datetime.utcnow() + timedelta(days=days),
-#     )
-
 from datetime import datetime, timedelta
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlmodel import Session, select
+from db.sqlite import get_session, PlantInstance, PlantType
 from models import HarvestETAResponse, ErrorResponse
 
 router = APIRouter()
 
 @router.get("/", response_model=HarvestETAResponse)
-def get_harvest_eta():
-    days = 18
+def get_harvest_eta(session: Session = Depends(get_session)):
+    plant = session.exec(
+        select(PlantInstance).order_by(PlantInstance.stage_started_at.desc()).limit(1)
+    ).first()
+
+    if not plant:
+        days = 18
+        return HarvestETAResponse(
+            days_to_harvest=days,
+            projected_date=datetime.utcnow() + timedelta(days=days),
+        )
+
+    plant_type = session.get(PlantType, plant.plant_type_id)
+    if not plant_type:
+        days = 18
+        return HarvestETAResponse(
+            days_to_harvest=days,
+            projected_date=datetime.utcnow() + timedelta(days=days),
+        )
+
+    # stage_durations_days = [seed_days, veg_days, bloom_days]
+    total_days = sum(plant_type.stage_durations_days)  # เช่น 3+4+0 = 7
+    elapsed = (datetime.utcnow() - plant.stage_started_at).days
+    days_remaining = max(0, total_days - elapsed)
+
     return HarvestETAResponse(
-        days_to_harvest=days,
-        projected_date=datetime.utcnow() + timedelta(days=days),
+        days_to_harvest=days_remaining,
+        projected_date=datetime.utcnow() + timedelta(days=days_remaining),
     )

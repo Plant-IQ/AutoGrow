@@ -27,7 +27,7 @@ def get_history(session: Session = Depends(get_session)):
     if rows:
         newest = rows[0].ts
         if (now - newest) > timedelta(hours=24):
-            use_mock = True
+            use_mock = False 
 
     if use_mock:
         pts = []

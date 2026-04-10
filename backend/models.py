@@ -19,11 +19,11 @@ class StageUpdate(BaseModel):
 
 class HealthResponse(BaseModel):
     score: float
-    components: dict  # e.g., {"soil": 0.8, "temp": 0.9}
+    components: dict
 
 
 class LightResponse(BaseModel):
-    spectrum: str  # "veg", "bloom", etc.
+    spectrum: str
     hours_today: float
 
 
@@ -76,11 +76,10 @@ class PlantTypeIn(BaseModel):
 
     @model_validator(mode="after")
     def enforce_three_stage_palette(self):
-        # Exactly three stages: seed/early (blue), veg (white), bloom/fruit (pink/red)
         if len(self.stage_durations_days) != 3:
             raise ValueError("stage_durations_days must have exactly 3 entries (seed, veg, bloom).")
-        if any(d <= 0 for d in self.stage_durations_days):
-            raise ValueError("stage_durations_days values must be positive integers.")
+        if any(d < 0 for d in self.stage_durations_days): 
+            raise ValueError("stage_durations_days values must be non-negative integers.")
 
         colors = [c.upper() for c in self.stage_colors]
         if len(colors) != 3:
@@ -88,7 +87,6 @@ class PlantTypeIn(BaseModel):
         if any(c not in ALLOWED_STAGE_COLORS for c in colors):
             raise ValueError(f"stage_colors must be one of {ALLOWED_STAGE_COLORS}.")
 
-        # Normalize to uppercase to keep DB consistent
         self.stage_colors = colors
         return self
 
