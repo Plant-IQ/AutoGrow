@@ -2,31 +2,30 @@
 import Image from "next/image";
 import useSWR, { mutate } from "swr";
 import { useEffect, useRef, useState } from "react";
-import { fetcher, postJson } from "@/lib/api";
+import { fetcher, postJson, DEFAULT_LAT, DEFAULT_LON } from "@/lib/api";
 
 type StageResponse = { stage: number; label: string; days_in_stage: number };
 type HarvestResponse = { days_to_harvest: number; projected_date: string };
 type PlantType = { id: number; name: string; stage_durations_days: number[] };
 type ActivePlant = { id: number; session_code: string; label: string; plant_type_id: number };
+type WeatherContext = {
+  temp_c?: number;
+  apparent_temp_c?: number;
+  humidity?: number;
+  wind_speed_mps?: number;
+  sunrise_utc?: string;
+  sunset_utc?: string;
+  source?: string;
+};
 
 const STAGE_LABELS = ["Seed", "Veg", "Bloom"];
 const ICONS = ["/assets/icons/state_seed.png", "/assets/icons/state_veg.png", "/assets/icons/state_bloom.png"];
-const PLANT_DB: { name: string }[] = [
-  { name: "Water Spinach (Morning Glory)" },
-  { name: "Green Oak Lettuce" },
-  { name: "Holy Basil" },
-  { name: "Thai Basil" },
-  { name: "Mint" },
-  { name: "Kale" },
-  { name: "Spinach" },
-];
-
 export default function GrowthStatus() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [showForm, setShowForm] = useState(false);
-  const [suggestions, setSuggestions] = useState<typeof PLANT_DB>([]);
+  const [suggestions, setSuggestions] = useState<PlantType[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeIdx, setActiveIdx] = useState(-1);
   const suggestRef = useRef<HTMLUListElement>(null);
@@ -41,6 +40,11 @@ export default function GrowthStatus() {
     refreshInterval: 60000,
   });
   const { data: plantTypes } = useSWR<PlantType[]>("/plant-types", fetcher, { refreshInterval: 300000 });
+  const { data: weather } = useSWR<WeatherContext>(
+    `/context/weather?lat=${DEFAULT_LAT}&lon=${DEFAULT_LON}`,
+    fetcher,
+    { refreshInterval: 15 * 60 * 1000 }
+  );
 
   useEffect(() => {
     if (!activePlant) setShowForm(true);
@@ -57,18 +61,18 @@ export default function GrowthStatus() {
   function handleNameChange(val: string) {
     setName(val);
     setActiveIdx(-1);
-    if (!val.trim()) {
+    if (!val.trim() || !plantTypes) {
       setSuggestions([]);
       setShowSuggestions(false);
       return;
     }
     const q = val.toLowerCase();
-    const filtered = PLANT_DB.filter((p) => p.name.toLowerCase().includes(q));
+    const filtered = plantTypes.filter((p) => p.name.toLowerCase().includes(q)).slice(0, 12);
     setSuggestions(filtered);
     setShowSuggestions(filtered.length > 0);
   }
 
-  function selectPlant(plant: (typeof PLANT_DB)[0]) {
+  function selectPlant(plant: PlantType) {
     setName(plant.name);
     setSuggestions([]);
     setShowSuggestions(false);
@@ -120,6 +124,7 @@ export default function GrowthStatus() {
     setSaving(true);
     setMessage(null);
     try {
+      const trimmed = name.trim();
       const startRes = await postJson("/plants/start", { name: name.trim() });
       if (!startRes.ok) throw new Error("Plant not found in database");
       const plant = await startRes.json();
@@ -133,7 +138,7 @@ export default function GrowthStatus() {
         bloom_days: d[2] ?? 0,
       });
       await Promise.all([mutate("/plants/active"), mutate("/stage"), mutate("/harvest-eta"), mutate("/plants/")]);
-      setName("");
+      setName(trimmed);
       setShowForm(false);
       setMessage("Started new grow session.");
     } catch (err: unknown) {
@@ -156,6 +161,10 @@ export default function GrowthStatus() {
   const projected = hasActive
     ? new Date(harvestSafe.projected_date).toLocaleDateString(undefined, { month: "short", day: "numeric" })
     : "";
+  const sunrise = weather?.sunrise_utc ? new Date(weather.sunrise_utc).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : null;
+  const sunset = weather?.sunset_utc ? new Date(weather.sunset_utc).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : null;
+  const tempDisplay = weather?.temp_c !== undefined ? `${weather.temp_c.toFixed(1)}°C` : "–°C";
+  const humidityDisplay = weather?.humidity !== undefined ? `${weather.humidity.toFixed(0)}% RH` : "–% RH";
 
   return (
     <div className="status-frame h-full">
@@ -188,6 +197,15 @@ export default function GrowthStatus() {
               </button>
             )}
           </div>
+          {weather && (
+            <div className="status-meta mt-2 text-sm text-slate-600">
+              <span>
+                Outdoor {tempDisplay} / {humidityDisplay}
+                {sunrise && sunset ? ` · Sunrise ${sunrise} · Sunset ${sunset}` : ""}
+                {weather.source ? ` · via ${weather.source}` : ""}
+              </span>
+            </div>
+          )}
         </div>
 
         {showForm && (
@@ -226,7 +244,7 @@ export default function GrowthStatus() {
                   >
                     {suggestions.map((p, i) => (
                       <li
-                        key={p.name}
+                        key={p.id}
                         onMouseDown={() => selectPlant(p)}
                         style={{
                           padding: "8px 12px",

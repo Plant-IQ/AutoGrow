@@ -95,6 +95,20 @@ class PlantTypeOut(PlantTypeIn):
     id: int
 
 
+class PlantTypeTargetIn(BaseModel):
+    temp_min_c: float
+    temp_max_c: float
+    humidity_min: float
+    humidity_max: float
+    light_min_lux: float
+    light_max_lux: float
+
+
+class PlantTypeTargetOut(PlantTypeTargetIn):
+    id: int
+    plant_type_id: int
+
+
 class PlantInstanceIn(BaseModel):
     label: str
     plant_type_id: int

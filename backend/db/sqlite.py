@@ -12,10 +12,9 @@ from datetime import datetime, timezone, timedelta
 
 ICT = timezone(timedelta(hours=7))
 
-load_dotenv()
-
 # Make DB path stable no matter the working directory (defaults to backend/autogrow.db)
 BASE_DIR = Path(__file__).resolve().parent.parent
+load_dotenv(BASE_DIR / ".env")
 DB_PATH = Path(os.getenv("SQLITE_PATH", BASE_DIR / "autogrow.db"))
 engine = create_engine(f"sqlite:///{DB_PATH}", connect_args={"check_same_thread": False})
 
@@ -94,6 +93,19 @@ class PlantInstance(SQLModel, table=True):
     current_stage_index: int = 0
     stage_started_at: datetime = Field(default_factory=datetime.utcnow)
     pending_confirm: bool = False 
+
+
+class PlantTypeTarget(SQLModel, table=True):
+    """Ideal environmental ranges for a plant type (for scoring/alerts)."""
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    plant_type_id: int = Field(foreign_key="planttype.id", index=True)
+    temp_min_c: float
+    temp_max_c: float
+    humidity_min: float
+    humidity_max: float
+    light_min_lux: float
+    light_max_lux: float
 
 
 def init_db() -> None:
@@ -227,4 +239,3 @@ def record_sensor_combined(
         )
         session.add(row)
         session.commit()
-
