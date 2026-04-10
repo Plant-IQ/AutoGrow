@@ -46,6 +46,7 @@ def _record_combined_sensor(payload: dict):
             temp=temp_val,
             humidity=float(humidity) if humidity is not None else 0.0,
             light=float(light) if light is not None else 0.0,
+            vibration=float(vibr) if vibr is not None else 0.0,
             # ── เพิ่มเข้าไป ──
             stage=int(stage) if stage is not None else 0,
             stage_name=stage_name or "",

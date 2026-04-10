@@ -17,13 +17,19 @@ type PlantLight = {
   color: string;
   pending_confirm: boolean;
 };
+type LightTelemetry = {
+  spectrum: string;
+  hours_today: number;
+};
 
 export default function PlantLight() {
-  const { data: plants, isLoading: loadingPlants, error: plantsError } = useSWR<PlantInstance[]>("/plants/", fetcher, {
+  const { data: activePlant, isLoading: loadingPlants, error: plantsError } = useSWR<PlantInstance | null>(
+    "/plants/active",
+    fetcher,
+    {
     refreshInterval: 60000,
-  });
-
-  const activePlant = plants?.[0];
+    }
+  );
 
   const {
     data: light,
@@ -31,14 +37,21 @@ export default function PlantLight() {
     mutate,
     error: lightError,
   } = useSWR<PlantLight>(activePlant ? `/plants/${activePlant.id}/light` : null, fetcher, { refreshInterval: 30000 });
+  const { data: lightTelemetry, isLoading: loadingTelemetry, error: telemetryError } = useSWR<LightTelemetry>(
+    "/light",
+    fetcher,
+    { refreshInterval: 30000 }
+  );
 
-  const isLoading = loadingPlants || loadingLight;
-  const hasError = plantsError || lightError;
+  const isLoading = loadingPlants || loadingLight || loadingTelemetry;
+  const hasError = plantsError || lightError || telemetryError;
 
-  // Force a consistent palette: Seed → Blue, Veg → Warm White, Bloom → Red
-  const palette = ["#6fb2d2", "#F5E6C5", "#cb6a7e"];
-  const tone = light ? palette[Math.min(light.stage, palette.length - 1)] ?? light.color : palette[0];
-  const toneLabel = light?.stage === 0 ? "Blue" : light?.stage === 1 ? "Warm white" : "Red";
+  const spectrum = (lightTelemetry?.spectrum ?? "").trim().toLowerCase();
+  const hasLiveLight = Boolean(spectrum);
+  const tone =
+    spectrum === "blue" ? "#6fb2d2" : spectrum.includes("white") ? "#F5E6C5" : spectrum === "red" ? "#cb6a7e" : "#d1d5db";
+  const toneLabel =
+    spectrum === "blue" ? "Blue" : spectrum.includes("white") ? "Warm white" : spectrum === "red" ? "Red" : "Off";
 
   async function handleConfirm() {
     if (!activePlant) return;
@@ -48,7 +61,7 @@ export default function PlantLight() {
 
   if (hasError) return <div className="card text-red-600">Light status unavailable</div>;
   if (isLoading) return <div className="card">Loading light status…</div>;
-  if (!activePlant) return <div className="card">No plants defined yet.</div>;
+  if (!activePlant) return <div className="card">Light is off until a new plant starts.</div>;
   if (!light) return <div className="card text-red-600">Light data missing</div>;
 
   return (
@@ -67,7 +80,7 @@ export default function PlantLight() {
         <p className="text-2xl font-semibold leading-tight">{toneLabel}</p>
       </div>
 
-      {light.pending_confirm ? (
+      {hasLiveLight && light.pending_confirm ? (
         <div className="mt-2 flex items-center justify-between gap-3 rounded-lg bg-amber-50 px-3 py-2 text-amber-800">
           <div>
             <p className="text-sm font-medium">Change pending</p>
@@ -78,7 +91,9 @@ export default function PlantLight() {
           </button>
         </div>
       ) : (
-        <p className="text-sm text-emerald-700">Synced · no confirmation needed</p>
+        <p className="text-sm text-emerald-700">
+          {hasLiveLight ? "Synced · no confirmation needed" : "No active light output"}
+        </p>
       )}
     </div>
   );

@@ -9,23 +9,18 @@ router = APIRouter()
 @router.get("/", response_model=HarvestETAResponse)
 def get_harvest_eta(session: Session = Depends(get_session)):
     plant = session.exec(
-        select(PlantInstance).order_by(PlantInstance.stage_started_at.desc()).limit(1)
+        select(PlantInstance)
+        .where(PlantInstance.is_active == True)  # noqa: E712
+        .order_by(PlantInstance.started_at.desc())
+        .limit(1)
     ).first()
 
     if not plant:
-        days = 18
-        return HarvestETAResponse(
-            days_to_harvest=days,
-            projected_date=datetime.utcnow() + timedelta(days=days),
-        )
+        return HarvestETAResponse(days_to_harvest=0, projected_date=datetime.utcnow())
 
     plant_type = session.get(PlantType, plant.plant_type_id)
     if not plant_type:
-        days = 18
-        return HarvestETAResponse(
-            days_to_harvest=days,
-            projected_date=datetime.utcnow() + timedelta(days=days),
-        )
+        return HarvestETAResponse(days_to_harvest=0, projected_date=datetime.utcnow())
 
     # stage_durations_days = [seed_days, veg_days, bloom_days]
     total_days = sum(plant_type.stage_durations_days)  # เช่น 3+4+0 = 7

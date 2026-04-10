@@ -8,13 +8,16 @@ type PumpResponse = {
   vibration: number;
   last_checked: string;
 };
+type ActivePlant = { id: number };
 
 export default function PumpStatus() {
+  const { data: activePlant, isLoading: loadingActive } = useSWR<ActivePlant | null>("/plants/active", fetcher);
   const { data, isLoading, error } = useSWR<PumpResponse>("/pump-status", fetcher, {
     refreshInterval: 30000,
   });
 
-  if (isLoading) return <div className="card">Checking pump…</div>;
+  if (loadingActive || isLoading) return <div className="card">Checking pump…</div>;
+  if (!activePlant) return <div className="card">Pump idle until a new plant starts.</div>;
   if (error || !data) return <div className="card text-red-600">Pump status unavailable</div>;
 
   const last = new Date(data.last_checked).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });

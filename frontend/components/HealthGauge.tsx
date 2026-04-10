@@ -6,13 +6,16 @@ type HealthResponse = {
   score: number;
   components: Record<string, number>;
 };
+type ActivePlant = { id: number };
 
 export default function HealthGauge() {
+  const { data: activePlant, isLoading: loadingActive } = useSWR<ActivePlant | null>("/plants/active", fetcher);
   const { data, isLoading, error } = useSWR<HealthResponse>("/health", fetcher, {
     refreshInterval: 60000,
   });
 
-  if (isLoading) return <div className="card">Loading health…</div>;
+  if (loadingActive || isLoading) return <div className="card">Loading health…</div>;
+  if (!activePlant) return <div className="card">Health score will appear after planting.</div>;
   if (error || !data) return <div className="card text-red-600">Health unavailable</div>;
 
   const radius = 48;

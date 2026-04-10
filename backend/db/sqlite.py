@@ -35,11 +35,13 @@ class SensorReading(SQLModel, table=True):
     """Time-series of sensor data; can be downsampled later."""
 
     id: Optional[int] = Field(default=None, primary_key=True)
+    plant_instance_id: Optional[int] = Field(default=None, foreign_key="plantinstance.id", index=True)
     ts: datetime = Field(default_factory=lambda: datetime.now(ICT), index=True)
     soil: float
     temp: float
     humidity: float
     light: float
+    vibration: float = Field(default=0.0)
     # ── field ใหม่จาก ESP32 ──
     stage: int = Field(default=0)
     stage_name: str = Field(default="")
@@ -83,8 +85,12 @@ class PlantInstance(SQLModel, table=True):
     """Instance of a plant type, e.g. 'Cucumber 1'."""
 
     id: Optional[int] = Field(default=None, primary_key=True)
+    session_code: str = Field(default="")
     label: str
     plant_type_id: int = Field(foreign_key="planttype.id")
+    started_at: datetime = Field(default_factory=datetime.utcnow)
+    harvested_at: Optional[datetime] = None
+    is_active: bool = Field(default=True, index=True)
     current_stage_index: int = 0
     stage_started_at: datetime = Field(default_factory=datetime.utcnow)
     pending_confirm: bool = False 
@@ -99,6 +105,50 @@ def init_db() -> None:
         db_file.parent.mkdir(parents=True, exist_ok=True)
 
     SQLModel.metadata.create_all(engine)
+    _run_migrations(db_file)
+
+
+def _column_exists(conn: sqlite3.Connection, table: str, column: str) -> bool:
+    cursor = conn.execute(f"PRAGMA table_info({table})")
+    return any(row[1] == column for row in cursor.fetchall())
+
+
+def _run_migrations(db_file: Path) -> None:
+    """Best-effort SQLite schema migrations for existing local DBs."""
+    conn = sqlite3.connect(db_file)
+    try:
+        if not _column_exists(conn, "plantinstance", "session_code"):
+            conn.execute("ALTER TABLE plantinstance ADD COLUMN session_code TEXT DEFAULT ''")
+        if not _column_exists(conn, "plantinstance", "started_at"):
+            conn.execute("ALTER TABLE plantinstance ADD COLUMN started_at TIMESTAMP")
+        if not _column_exists(conn, "plantinstance", "harvested_at"):
+            conn.execute("ALTER TABLE plantinstance ADD COLUMN harvested_at TIMESTAMP")
+        if not _column_exists(conn, "plantinstance", "is_active"):
+            conn.execute("ALTER TABLE plantinstance ADD COLUMN is_active INTEGER DEFAULT 1")
+
+        if not _column_exists(conn, "sensorreading", "plant_instance_id"):
+            conn.execute("ALTER TABLE sensorreading ADD COLUMN plant_instance_id INTEGER")
+        if not _column_exists(conn, "sensorreading", "vibration"):
+            conn.execute("ALTER TABLE sensorreading ADD COLUMN vibration REAL DEFAULT 0")
+
+        conn.execute(
+            "UPDATE plantinstance SET started_at = COALESCE(started_at, stage_started_at, CURRENT_TIMESTAMP)"
+        )
+        conn.execute("UPDATE plantinstance SET is_active = COALESCE(is_active, 0)")
+
+        # Legacy rows created before session tracking have blank session codes.
+        # Treat them as historical (inactive) so dashboard starts empty until a new plant is started.
+        conn.execute(
+            """
+            UPDATE plantinstance
+            SET is_active = 0,
+                harvested_at = COALESCE(harvested_at, CURRENT_TIMESTAMP)
+            WHERE COALESCE(session_code, '') = ''
+            """
+        )
+        conn.commit()
+    finally:
+        conn.close()
 
 
 def get_session():
@@ -138,6 +188,7 @@ def record_sensor_combined(
     temp: float,
     humidity: float,
     light: float,
+    vibration: float = 0.0,
     stage: int = 0,
     stage_name: str = "",
     spectrum: str = "",
@@ -149,11 +200,22 @@ def record_sensor_combined(
 ) -> None:
     """Store a complete sensor reading from combined ESP32 payload."""
     with Session(engine) as session:
+        active = session.exec(
+            select(PlantInstance)
+            .where(PlantInstance.is_active == True)  # noqa: E712
+            .order_by(PlantInstance.started_at.desc())
+            .limit(1)
+        ).first()
+        if not active:
+            return
+
         row = SensorReading(
+            plant_instance_id=active.id,
             soil=soil,
             temp=temp,
             humidity=humidity,
             light=light,
+            vibration=vibration,
             stage=stage,
             stage_name=stage_name,
             spectrum=spectrum,

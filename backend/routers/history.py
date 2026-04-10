@@ -14,14 +14,28 @@ from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends
 from sqlmodel import Session, select
 from models import HistoryResponse, HistoryPoint
-from db.sqlite import get_session, SensorReading
+from db.sqlite import get_session, SensorReading, PlantInstance
 
 router = APIRouter()
 
 @router.get("/", response_model=HistoryResponse)
 def get_history(session: Session = Depends(get_session)):
     now = datetime.utcnow()
-    rows = session.exec(select(SensorReading).order_by(SensorReading.ts.desc()).limit(168)).all()
+    active = session.exec(
+        select(PlantInstance)
+        .where(PlantInstance.is_active == True)  # noqa: E712
+        .order_by(PlantInstance.started_at.desc())
+        .limit(1)
+    ).first()
+    if not active:
+        return HistoryResponse(points=[])
+
+    rows = session.exec(
+        select(SensorReading)
+        .where(SensorReading.plant_instance_id == active.id)
+        .order_by(SensorReading.ts.desc())
+        .limit(168)
+    ).all()
 
     use_mock = not rows
     if rows:

@@ -24,18 +24,22 @@ type HistoryPoint = {
 type HistoryResponse = {
   points: HistoryPoint[];
 };
+type ActivePlant = { id: number };
 
 function formatTs(ts: string) {
   return new Date(ts).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }
 
 export default function SensorChart() {
+  const { data: activePlant, isLoading: loadingActive } = useSWR<ActivePlant | null>("/plants/active", fetcher);
   const { data, isLoading, error } = useSWR<HistoryResponse>("/history", fetcher, {
     refreshInterval: 60000,
   });
 
-  if (isLoading) return <div className="card">Loading timeline…</div>;
+  if (loadingActive || isLoading) return <div className="card">Loading timeline…</div>;
+  if (!activePlant) return <div className="card">No readings yet. Start a plant to begin collecting data.</div>;
   if (error || !data) return <div className="card text-red-600">Timeline unavailable</div>;
+  if (data.points.length === 0) return <div className="card">No readings yet for this plant.</div>;
 
   const chartData = data.points.map((p) => ({
     ...p,

@@ -1,6 +1,7 @@
 import asyncio
 from datetime import datetime, timedelta
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import func
 from sqlmodel import Session, select
 from db.sqlite import PlantType, PlantInstance, get_session, engine
 from models import (
@@ -10,8 +11,10 @@ from models import (
     PlantInstanceOut,
     PlantInstanceUpdate,
     PlantLightResponse,
+    StartPlantRequest,
 )
 from mqtt.publisher import publish_light_color
+from services.actuators import set_humidifier, set_light, set_pump
 
 router = APIRouter()
 # Separate router to expose top-level /plant-types without inheriting the /plants prefix
@@ -80,6 +83,27 @@ def list_plants(session: Session = Depends(get_session)):
     return plants
 
 
+@router.get("/active", response_model=PlantInstanceOut | None)
+def get_active_plant(session: Session = Depends(get_session)):
+    plant = session.exec(
+        select(PlantInstance)
+        .where(PlantInstance.is_active == True)  # noqa: E712
+        .where(PlantInstance.harvested_at == None)  # noqa: E711
+        .order_by(PlantInstance.started_at.desc())
+        .limit(1)
+    ).first()
+    if not plant:
+        return None
+
+    pt = session.get(PlantType, plant.plant_type_id)
+    if pt:
+        changed = _refresh_pending(plant, pt, session)
+        if changed:
+            session.commit()
+            session.refresh(plant)
+    return plant
+
+
 @router.patch("/{plant_id}", response_model=PlantInstanceOut)
 def update_plant(plant_id: int, payload: PlantInstanceUpdate, session: Session = Depends(get_session)):
     plant = session.get(PlantInstance, plant_id)
@@ -112,12 +136,70 @@ def delete_plant(plant_id: int, session: Session = Depends(get_session)):
 def create_plant(payload: PlantInstanceIn, session: Session = Depends(get_session)):
     if not session.get(PlantType, payload.plant_type_id):
         raise HTTPException(status_code=400, detail="Unknown plant_type_id")
+    _deactivate_current(session)
     data = payload.model_dump()
     if data["stage_started_at"] is None:
         data["stage_started_at"] = datetime.utcnow()
+    data["started_at"] = datetime.utcnow()
+    data["is_active"] = True
+    data["harvested_at"] = None
+    data["session_code"] = _next_session_code(session)
     row = PlantInstance(**data)
     session.add(row); session.commit(); session.refresh(row)
     return row
+
+
+@router.post("/start", response_model=PlantInstanceOut)
+def start_plant(payload: StartPlantRequest, session: Session = Depends(get_session)):
+    name = payload.name.strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Plant name is required")
+
+    plant_type = session.exec(select(PlantType).where(func.lower(PlantType.name) == name.lower())).first()
+    if not plant_type:
+        raise HTTPException(status_code=404, detail=f"Plant type '{name}' not found")
+
+    _deactivate_current(session)
+    now = datetime.utcnow()
+    row = PlantInstance(
+        session_code=_next_session_code(session),
+        label=name,
+        plant_type_id=plant_type.id,
+        current_stage_index=0,
+        stage_started_at=now,
+        started_at=now,
+        harvested_at=None,
+        is_active=True,
+        pending_confirm=False,
+    )
+    session.add(row)
+    session.commit()
+    session.refresh(row)
+    return row
+
+
+@router.post("/harvest-active")
+def harvest_active(session: Session = Depends(get_session)):
+    active = session.exec(
+        select(PlantInstance)
+        .where(PlantInstance.is_active == True)  # noqa: E712
+        .order_by(PlantInstance.started_at.desc())
+        .limit(1)
+    ).first()
+    if not active:
+        return {"ok": True, "message": "No active plant"}
+
+    active.is_active = False
+    active.harvested_at = datetime.utcnow()
+    active.pending_confirm = False
+    session.add(active)
+    session.commit()
+
+    # Best effort: stop all hardware output when no active plant.
+    set_pump(False)
+    set_light(False, "off")
+    set_humidifier(False)
+    return {"ok": True, "harvested_session": active.session_code}
 
 
 def _get_color_for_stage(plant: PlantInstance, plant_type: PlantType) -> str:
@@ -155,6 +237,31 @@ def _refresh_pending(plant: PlantInstance, plant_type: PlantType, session: Sessi
         return True
 
     return False
+
+
+def _next_session_code(session: Session) -> str:
+    rows = session.exec(select(PlantInstance.session_code)).all()
+    max_id = 0
+    for code in rows:
+        if not code:
+            continue
+        try:
+            max_id = max(max_id, int(code))
+        except ValueError:
+            continue
+    return f"{max_id + 1:05d}"
+
+
+def _deactivate_current(session: Session) -> None:
+    active = session.exec(
+        select(PlantInstance).where(PlantInstance.is_active == True)  # noqa: E712
+    ).all()
+    now = datetime.utcnow()
+    for plant in active:
+        plant.is_active = False
+        plant.harvested_at = now
+        plant.pending_confirm = False
+        session.add(plant)
 
 
 @router.get("/{plant_id}/light", response_model=PlantLightResponse)

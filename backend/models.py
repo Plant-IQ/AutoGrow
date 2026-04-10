@@ -104,7 +104,15 @@ class PlantInstanceIn(BaseModel):
 
 class PlantInstanceOut(PlantInstanceIn):
     id: int
+    session_code: str
+    started_at: datetime
+    harvested_at: datetime | None = None
+    is_active: bool
     pending_confirm: bool
+
+
+class StartPlantRequest(BaseModel):
+    name: str
 
 
 class PlantInstanceUpdate(BaseModel):

@@ -25,12 +25,35 @@
 
 
 from datetime import datetime
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlmodel import Session, select
 from models import PumpStatusResponse, ErrorResponse
+from db.sqlite import get_session, PlantInstance, SensorReading
 
 router = APIRouter()
 
 @router.get("/", response_model=PumpStatusResponse)
-def get_pump_status():
-    # Mocked status until DB schema includes pump columns
-    return PumpStatusResponse(ok=True, vibration=0.12, last_checked=datetime.utcnow())
+def get_pump_status(session: Session = Depends(get_session)):
+    active = session.exec(
+        select(PlantInstance)
+        .where(PlantInstance.is_active == True)  # noqa: E712
+        .order_by(PlantInstance.started_at.desc())
+        .limit(1)
+    ).first()
+    if not active:
+        return PumpStatusResponse(ok=False, vibration=0.0, last_checked=datetime.utcnow())
+
+    reading = session.exec(
+        select(SensorReading)
+        .where(SensorReading.plant_instance_id == active.id)
+        .order_by(SensorReading.ts.desc())
+        .limit(1)
+    ).first()
+    if not reading:
+        return PumpStatusResponse(ok=False, vibration=0.0, last_checked=datetime.utcnow())
+
+    return PumpStatusResponse(
+        ok=bool(reading.pump_on),
+        vibration=float(reading.vibration or 0.0),
+        last_checked=reading.ts,
+    )

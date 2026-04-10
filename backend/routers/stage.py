@@ -1,10 +1,11 @@
+from datetime import datetime
 from fastapi import APIRouter, BackgroundTasks, Depends
-from sqlmodel import Session
+from sqlmodel import Session, select
 from pydantic import BaseModel
 
 from models import StageResponse, StageUpdate
-from db.sqlite import get_session
-from services.stage_engine import get_current_stage, upsert_stage, schedule_stage_transitions
+from db.sqlite import get_session, PlantInstance, PlantType
+from services.stage_engine import upsert_stage, schedule_stage_transitions
 from mqtt.publisher import publish_stage_update
 
 router = APIRouter()
@@ -25,9 +26,23 @@ class StartGrowRequest(BaseModel):
     description="Returns current stage index/name and days elapsed in stage.",
 )
 def get_stage(session: Session = Depends(get_session)):
-    idx, name, days = get_current_stage(session)
-    return StageResponse(stage=idx, label=name, days_in_stage=days)
+    active = session.exec(
+        select(PlantInstance)
+        .where(PlantInstance.is_active == True)  # noqa: E712
+        .order_by(PlantInstance.started_at.desc())
+        .limit(1)
+    ).first()
+    if not active:
+        return StageResponse(stage=0, label="", days_in_stage=0)
 
+    plant_type = session.get(PlantType, active.plant_type_id)
+    if not plant_type:
+        return StageResponse(stage=active.current_stage_index, label="Seed", days_in_stage=1)
+
+    idx = min(active.current_stage_index, 2)
+    label = ["Seed", "Veg", "Bloom"][idx]
+    days = max(1, (datetime.utcnow() - active.stage_started_at).days + 1)
+    return StageResponse(stage=idx, label=label, days_in_stage=days)
 
 @router.post(
     "/set",
@@ -37,8 +52,7 @@ def get_stage(session: Session = Depends(get_session)):
 )
 def set_stage(payload: StageUpdate, session: Session = Depends(get_session)):
     upsert_stage(session, payload.stage, payload.label)
-    idx, name, days = get_current_stage(session)
-    return StageResponse(stage=idx, label=name, days_in_stage=days)
+    return StageResponse(stage=payload.stage, label=payload.label, days_in_stage=1)
 
 
 @router.post(
@@ -63,5 +77,4 @@ async def reset_stage(
         req.bloom_days,
     )
 
-    idx, name, days = get_current_stage(session)
-    return StageResponse(stage=idx, label=name, days_in_stage=days)
+    return StageResponse(stage=0, label="Seed", days_in_stage=1)
