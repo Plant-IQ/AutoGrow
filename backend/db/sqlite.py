@@ -41,7 +41,6 @@ class SensorReading(SQLModel, table=True):
     humidity: float
     light: float
     vibration: float = Field(default=0.0)
-    # ── field ใหม่จาก ESP32 ──
     stage: int = Field(default=0)
     stage_name: str = Field(default="")
     spectrum: str = Field(default="")
@@ -180,7 +179,6 @@ def record_sensor(field: str, value: float) -> None:
     with Session(engine) as session:
         last = session.exec(select(SensorReading).order_by(SensorReading.ts.desc()).limit(1)).first()
 
-        # Carry forward previous values so history/health stay smooth
         base = {
             "soil": last.soil if last else value,
             "temp": last.temp if last else value,
@@ -214,7 +212,7 @@ def record_sensor_combined(
     with Session(engine) as session:
         active = session.exec(
             select(PlantInstance)
-            .where(PlantInstance.is_active == True)  # noqa: E712
+            .where(PlantInstance.is_active == True)
             .order_by(PlantInstance.started_at.desc())
             .limit(1)
         ).first()
@@ -239,3 +237,16 @@ def record_sensor_combined(
         )
         session.add(row)
         session.commit()
+
+
+import pymysql
+
+MYSQL_URL = os.getenv(
+    "MYSQL_URL",
+    "mysql+pymysql://b6710545652:natcha.limsu@ku.th@iot.cpe.ku.ac.th:3306/b6710545652"
+)
+mysql_engine = create_engine(MYSQL_URL)
+
+def get_mysql_session():
+    with Session(mysql_engine) as session:
+        yield session

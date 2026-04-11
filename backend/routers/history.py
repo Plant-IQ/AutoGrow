@@ -10,59 +10,79 @@
 #     return HistoryResponse(points=[])
 
 
-from datetime import datetime, timedelta
+from datetime import datetime
+from typing import Optional
 from fastapi import APIRouter, Depends
-from sqlmodel import Session, select
+from sqlmodel import Session, SQLModel, Field, select, create_engine
+from sqlalchemy.engine import URL
 from models import HistoryResponse, HistoryPoint
-from db.sqlite import get_session, SensorReading, PlantInstance
 
 router = APIRouter()
 
-@router.get("/", response_model=HistoryResponse)
-def get_history(session: Session = Depends(get_session)):
-    now = datetime.utcnow()
-    active = session.exec(
-        select(PlantInstance)
-        .where(PlantInstance.is_active == True)  # noqa: E712
-        .order_by(PlantInstance.started_at.desc())
-        .limit(1)
-    ).first()
-    if not active:
-        return HistoryResponse(points=[])
+MYSQL_URL = URL.create(
+    drivername="mysql+pymysql",
+    username="b6710545652",
+    password="natcha.limsu@ku.th",
+    host="iot.cpe.ku.ac.th",
+    port=3306,
+    database="b6710545652",
+)
+mysql_engine = create_engine(
+    MYSQL_URL,
+    pool_pre_ping=True,
+    pool_recycle=1800,
+)
 
+def get_mysql_session():
+    with Session(mysql_engine) as session:
+        yield session
+
+class AutogrowReading(SQLModel, table=True):
+    __tablename__ = "Autogrow"
+    id: Optional[int] = Field(default=None, primary_key=True)
+    ts: datetime = Field(default_factory=datetime.utcnow)
+    stage: int = 0
+    stage_name: str = ""
+    spectrum: str = ""
+    temp1: float = 0.0
+    temp2: float = 0.0
+    humidity: float = 0.0
+    soil_pct: float = 0.0
+    light_lux: float = 0.0
+    vibration: float = 0.0
+    pump_on: int = 0
+    pump_status: str = ""
+    light_hrs_today: float = 0.0
+    harvest_eta_days: int = 0
+    health_score: int = 0
+
+@router.get("/", response_model=HistoryResponse)
+def get_history(session: Session = Depends(get_mysql_session)):
     rows = session.exec(
-        select(SensorReading)
-        .where(SensorReading.plant_instance_id == active.id)
-        .order_by(SensorReading.ts.desc())
+        select(AutogrowReading)
+        .order_by(AutogrowReading.ts.desc())
         .limit(168)
     ).all()
 
-    use_mock = not rows
-    if rows:
-        newest = rows[0].ts
-        if (now - newest) > timedelta(hours=24):
-            use_mock = False 
+    if not rows:
+        return HistoryResponse(points=[])
 
-    if use_mock:
-        pts = []
-    else:
-        pts = [
-            HistoryPoint(
-                ts=r.ts,
-                soil=r.soil,
-                temp=r.temp,
-                humidity=r.humidity,
-                light=r.light,
-                stage=r.stage,
-                stage_name=r.stage_name,
-                spectrum=r.spectrum,
-                pump_on=r.pump_on,
-                pump_status=r.pump_status,
-                light_hrs_today=r.light_hrs_today,
-                harvest_eta_days=r.harvest_eta_days,
-                health_score=r.health_score,
-            )
-            for r in reversed(rows)
-        ]
-
+    pts = [
+        HistoryPoint(
+            ts=r.ts,
+            soil=r.soil_pct,
+            temp=r.temp1,
+            humidity=r.humidity,
+            light=r.light_lux,
+            stage=r.stage,
+            stage_name=r.stage_name,
+            spectrum=r.spectrum,
+            pump_on=bool(r.pump_on),
+            pump_status=r.pump_status,
+            light_hrs_today=r.light_hrs_today,
+            harvest_eta_days=r.harvest_eta_days,
+            health_score=r.health_score,
+        )
+        for r in reversed(rows)
+    ]
     return HistoryResponse(points=pts)
