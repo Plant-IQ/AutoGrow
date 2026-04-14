@@ -21,6 +21,13 @@ type LightTelemetry = {
   spectrum: string;
   hours_today: number;
 };
+type HistoryPoint = {
+  ts: string;
+  light: number;
+};
+type HistoryResponse = {
+  points: HistoryPoint[];
+};
 
 export default function PlantLight() {
   const { data: activePlant, isLoading: loadingPlants, error: plantsError } = useSWR<PlantInstance | null>(
@@ -42,8 +49,11 @@ export default function PlantLight() {
     fetcher,
     { refreshInterval: 30000 }
   );
+  const { data: history, isLoading: loadingHistory } = useSWR<HistoryResponse>("/history", fetcher, {
+    refreshInterval: 30000,
+  });
 
-  const isLoading = loadingPlants || loadingLight || loadingTelemetry;
+  const isLoading = loadingPlants || loadingLight || loadingTelemetry || loadingHistory;
   const hasError = plantsError || lightError || telemetryError;
 
   const spectrum = (lightTelemetry?.spectrum ?? "").trim().toLowerCase();
@@ -52,6 +62,8 @@ export default function PlantLight() {
     spectrum === "blue" ? "#6fb2d2" : spectrum.includes("white") ? "#F5E6C5" : spectrum === "red" ? "#cb6a7e" : "#d1d5db";
   const toneLabel =
     spectrum === "blue" ? "Blue" : spectrum.includes("white") ? "Warm white" : spectrum === "red" ? "Red" : "Off";
+  const latestLux = history?.points?.[history.points.length - 1]?.light;
+  const luxLabel = latestLux !== undefined ? `${latestLux.toFixed(1)} lux` : "N/A";
 
   async function handleConfirm() {
     if (!activePlant) return;
@@ -80,6 +92,12 @@ export default function PlantLight() {
         <p className="text-2xl font-semibold leading-tight">{toneLabel}</p>
       </div>
 
+      <div className="mt-2 rounded-lg bg-slate-50 px-3 py-2">
+        <p className="text-xs uppercase tracking-wide text-slate-500">Light intensity (KY-018)</p>
+        <p className="text-xl font-semibold text-slate-900">{luxLabel}</p>
+        <p className="mt-1 text-xs text-slate-500">Collected via KY-018 (LDR ADC) + MQTT /autogrow/sensors</p>
+      </div>
+
       {hasLiveLight && light.pending_confirm ? (
         <div className="mt-2 flex items-center justify-between gap-3 rounded-lg bg-amber-50 px-3 py-2 text-amber-800">
           <div>
@@ -91,7 +109,7 @@ export default function PlantLight() {
           </button>
         </div>
       ) : (
-        <p className="text-sm text-emerald-700">
+        <p className="mt-2 text-sm text-emerald-700">
           {hasLiveLight ? "Synced · no confirmation needed" : "No active light output"}
         </p>
       )}
