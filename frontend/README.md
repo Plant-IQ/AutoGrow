@@ -16,6 +16,18 @@ bun dev
 
 Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
+### Mock backend (no hardware/colleague needed)
+
+To drive the UI with built‑in mock data instead of a real API:
+
+```bash
+cd frontend
+npm install
+npm run dev:mock
+```
+
+This starts Next.js and serves mock endpoints at `/api/mock`. The UI will show a seeded active plant, sensor history, pump/light status, and accepts POSTs for observations/harvest/start without a real device.
+
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.

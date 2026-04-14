@@ -18,14 +18,14 @@ export default function HealthGauge() {
   if (!activePlant) return <div className="card">Health score will appear after planting.</div>;
   if (error || !data) return <div className="card text-red-600">Health unavailable</div>;
 
-  const radius = 48;
+  const radius = 32;
   const circumference = 2 * Math.PI * radius;
   const progress = Math.min(Math.max(data.score / 100, 0), 1);
   const offset = circumference * (1 - progress);
 
   return (
     <div className="card gap-4">
-      <div className="flex items-center justify-between">
+      <div className="flex items-start justify-between">
         <div>
           <p className="label">Health score</p>
           <p className="text-3xl font-semibold">{data.score}</p>
@@ -36,7 +36,7 @@ export default function HealthGauge() {
             cy={radius + 8}
             r={radius}
             className="text-slate-200"
-            strokeWidth={10}
+            strokeWidth={8}
             stroke="currentColor"
             fill="transparent"
           />
@@ -44,7 +44,7 @@ export default function HealthGauge() {
             cx={radius + 8}
             cy={radius + 8}
             r={radius}
-            strokeWidth={10}
+            strokeWidth={8}
             strokeLinecap="round"
             stroke="url(#healthGradient)"
             fill="transparent"

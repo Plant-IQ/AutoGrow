@@ -15,6 +15,7 @@ idna==3.11
 influxdb-client==1.50.0
 influxdb3-python==0.18.0
 paho-mqtt==2.1.0
+PyMySQL==1.1.2
 pyarrow==23.0.1
 pycparser==3.0
 pydantic==2.12.5

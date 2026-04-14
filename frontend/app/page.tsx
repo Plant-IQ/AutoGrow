@@ -1,9 +1,9 @@
 import HarvestETA from "@/components/HarvestETA";
-import HealthGauge from "@/components/HealthGauge";
 import ObsForm from "@/components/ObsForm";
 import PumpStatus from "@/components/PumpStatus";
 import SensorChart from "@/components/SensorChart";
 import PlantLight from "@/components/PlantLight";
+import WeatherCard from "@/components/WeatherCard";
 import Image from "next/image";
 import GrowthStatus from "@/components/GrowthStatus";
 
@@ -33,16 +33,13 @@ export default function Home() {
           <div className="md:col-span-2 h-full">
             <GrowthStatus />
           </div>
-          <div className="grid gap-4">
-            <PumpStatus />
-            <PlantLight />
-          </div>
+          <WeatherCard />
         </div>
 
-
-        <div className="grid gap-4 lg:grid-cols-3">
-          <HealthGauge />
-          <div className="lg:col-span-2">
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <PumpStatus />
+          <PlantLight />
+          <div className="md:col-span-2 lg:col-span-3">
             <SensorChart />
           </div>
         </div>

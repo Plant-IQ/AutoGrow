@@ -19,12 +19,11 @@ type WeatherContext = {
 };
 
 const STAGE_LABELS = ["Seed", "Veg", "Bloom"];
-const ICONS = ["/assets/icons/state_seed.png", "/assets/icons/state_veg.png", "/assets/icons/state_bloom.png"];
+const ICONS = ["/assets/icons/state_seed_2.png", "/assets/icons/state_veg.png", "/assets/icons/state_bloom.png"];
 export default function GrowthStatus() {
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [name, setName] = useState("");
-  const [showForm, setShowForm] = useState(false);
   const [suggestions, setSuggestions] = useState<PlantType[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [activeIdx, setActiveIdx] = useState(-1);
@@ -45,10 +44,6 @@ export default function GrowthStatus() {
     fetcher,
     { refreshInterval: 15 * 60 * 1000 }
   );
-
-  useEffect(() => {
-    if (!activePlant) setShowForm(true);
-  }, [activePlant]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -110,7 +105,6 @@ export default function GrowthStatus() {
         mutate("/light"),
         mutate("/health"),
       ]);
-      setShowForm(true);
       setMessage("Harvest complete. Start a new plant when ready.");
     } catch (err: unknown) {
       setMessage(err instanceof Error ? err.message : "Could not harvest");
@@ -139,7 +133,6 @@ export default function GrowthStatus() {
       });
       await Promise.all([mutate("/plants/active"), mutate("/stage"), mutate("/harvest-eta"), mutate("/plants/")]);
       setName(trimmed);
-      setShowForm(false);
       setMessage("Started new grow session.");
     } catch (err: unknown) {
       setMessage(err instanceof Error ? err.message : "Could not start grow");
@@ -161,10 +154,82 @@ export default function GrowthStatus() {
   const projected = hasActive
     ? new Date(harvestSafe.projected_date).toLocaleDateString(undefined, { month: "short", day: "numeric" })
     : "";
-  const sunrise = weather?.sunrise_utc ? new Date(weather.sunrise_utc).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : null;
-  const sunset = weather?.sunset_utc ? new Date(weather.sunset_utc).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : null;
-  const tempDisplay = weather?.temp_c !== undefined ? `${weather.temp_c.toFixed(1)}°C` : "–°C";
-  const humidityDisplay = weather?.humidity !== undefined ? `${weather.humidity.toFixed(0)}% RH` : "–% RH";
+  if (!hasActive) {
+    return (
+      <div className="status-frame h-full">
+        <div className="status-card h-full">
+          <div className="status-header">
+            <span className="status-eyebrow">No active plant</span>
+            <p className="status-title mt-1">Start a new grow</p>
+          </div>
+          <div className="mt-3 space-y-2">
+            {message && <div className="rounded-md bg-emerald-50 px-3 py-2 text-emerald-700 text-sm">{message}</div>}
+            <form className="status-form" onSubmit={handleStart}>
+              <label className="field w-full">
+                <span>Plant name</span>
+                <div style={{ position: "relative", width: "100%" }}>
+                  <input
+                    value={name}
+                    onChange={(e) => handleNameChange(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
+                    placeholder="e.g., Water Spinach (Morning Glory)"
+                    autoComplete="off"
+                    required
+                    style={{ width: "100%" }}
+                  />
+                  {showSuggestions && (
+                    <ul
+                      ref={suggestRef}
+                      style={{
+                        position: "absolute",
+                        top: "100%",
+                        left: 0,
+                        right: 0,
+                        background: "var(--card-bg, #fff)",
+                        border: "1px solid #d1d5db",
+                        borderRadius: "0.375rem",
+                        maxHeight: "200px",
+                        overflowY: "auto",
+                        zIndex: 50,
+                        margin: "2px 0 0",
+                        padding: 0,
+                        listStyle: "none",
+                      }}
+                    >
+                      {suggestions.map((p, i) => (
+                        <li
+                          key={p.id}
+                          onMouseDown={() => selectPlant(p)}
+                          style={{
+                            padding: "8px 12px",
+                            cursor: "pointer",
+                            fontSize: "14px",
+                            background: i === activeIdx ? "#f3f4f6" : "transparent",
+                          }}
+                        >
+                          {p.name}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              </label>
+              <div className="status-form-actions">
+                <button type="submit" className="status-harvest-btn" disabled={saving}>
+                  {saving ? "Saving…" : "Start plant"}
+                </button>
+                <button type="button" className="status-secondary-btn" onClick={() => setName("")} disabled={saving}>
+                  Cancel
+                </button>
+              </div>
+              {message && <p className="status-message">{message}</p>}
+            </form>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="status-frame h-full">
@@ -173,8 +238,8 @@ export default function GrowthStatus() {
           <span className="day-label">Day</span>
           <div className="status-divider" aria-hidden />
           <span className="status-eyebrow">Growth status</span>
-          {hasActive && <Image src={icon} alt={stageName} width={88} height={88} className="status-icon" priority />}
-          <span className="day-number">{hasActive ? stageSafe.days_in_stage : "-"}</span>
+          <Image src={icon} alt={stageName} width={88} height={88} className="status-icon" priority />
+          <span className="day-number">{stageSafe.days_in_stage}</span>
           <p className="status-title" style={{ marginTop: "-4px" }}>
             {stageName}
           </p>
@@ -190,86 +255,15 @@ export default function GrowthStatus() {
             <div className="status-bar-fill" style={{ width: `${progress}%` }} />
           </div>
           <div className="status-meta mt-2">
-            <span>{hasActive ? `${harvestSafe.days_to_harvest} days to harvest · ${projected}` : "Awaiting next plant"}</span>
-            {hasActive && (
-              <button className="status-harvest-btn" onClick={handleHarvest} disabled={saving}>
-                {saving ? "Saving…" : "Harvest"}
-              </button>
-            )}
+            <span>{`${harvestSafe.days_to_harvest} days to harvest · ${projected}`}</span>
+            <button className="status-harvest-btn" onClick={handleHarvest} disabled={saving}>
+              {saving ? "Saving…" : "Harvest"}
+            </button>
           </div>
-          {weather && (
-            <div className="status-meta mt-2 text-sm text-slate-600">
-              <span>
-                Outdoor {tempDisplay} / {humidityDisplay}
-                {sunrise && sunset ? ` · Sunrise ${sunrise} · Sunset ${sunset}` : ""}
-                {weather.source ? ` · via ${weather.source}` : ""}
-              </span>
-            </div>
-          )}
         </div>
 
-        {showForm && (
-          <form className="status-form" onSubmit={handleStart}>
-            <label className="field w-full">
-              <span>Plant name</span>
-              <div style={{ position: "relative", width: "100%" }}>
-                <input
-                  value={name}
-                  onChange={(e) => handleNameChange(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
-                  placeholder="e.g., Water Spinach (Morning Glory)"
-                  autoComplete="off"
-                  required
-                  style={{ width: "100%" }}
-                />
-                {showSuggestions && (
-                  <ul
-                    ref={suggestRef}
-                    style={{
-                      position: "absolute",
-                      top: "100%",
-                      left: 0,
-                      right: 0,
-                      background: "var(--card-bg, #fff)",
-                      border: "1px solid #d1d5db",
-                      borderRadius: "0.375rem",
-                      maxHeight: "200px",
-                      overflowY: "auto",
-                      zIndex: 50,
-                      margin: "2px 0 0",
-                      padding: 0,
-                      listStyle: "none",
-                    }}
-                  >
-                    {suggestions.map((p, i) => (
-                      <li
-                        key={p.id}
-                        onMouseDown={() => selectPlant(p)}
-                        style={{
-                          padding: "8px 12px",
-                          cursor: "pointer",
-                          fontSize: "14px",
-                          background: i === activeIdx ? "#f3f4f6" : "transparent",
-                        }}
-                      >
-                        {p.name}
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            </label>
-            <div className="status-form-actions">
-              <button type="submit" className="status-harvest-btn" disabled={saving}>
-                {saving ? "Saving…" : "Start plant"}
-              </button>
-              <button type="button" className="status-secondary-btn" onClick={() => setShowForm(false)} disabled={saving}>
-                Cancel
-              </button>
-            </div>
-            {message && <p className="status-message">{message}</p>}
-          </form>
+        {message && (
+          <div className="mt-3 rounded-md bg-emerald-50 px-3 py-2 text-emerald-700 text-sm">{message}</div>
         )}
       </div>
     </div>
