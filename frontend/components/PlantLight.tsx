@@ -68,6 +68,20 @@ export default function PlantLight() {
   const latestLux = history?.points?.[history.points.length - 1]?.light;
   const luxLabel = latestLux !== undefined ? `${latestLux.toFixed(1)} lux` : "N/A";
 
+  const spectrumColors: Record<string, string> = {
+    blue:  "bg-blue-200/60",
+    red:   "bg-red-200/60",
+    white: "bg-slate-200/60",
+    off:   "bg-gray-100",
+  };
+
+  // Pick by checking spectrum (already trimmed/lowercased)
+  const boxColor =
+    spectrum === "blue"  ? spectrumColors.blue  :
+    spectrum.includes("white") ? spectrumColors.white :
+    spectrum === "red"   ? spectrumColors.red   :
+    spectrumColors.off;
+
   if (hasError) return <div className="card text-red-600">Light status unavailable</div>;
   if (isLoading) return <div className="card">Loading light status…</div>;
   if (!activePlant) return <div className="card">Light is off until a new plant starts.</div>;
@@ -93,7 +107,7 @@ export default function PlantLight() {
         <p className="text-2xl font-semibold leading-tight">{lightVisual.label}</p>
       </div>
 
-      <div className="mt-2 rounded-lg bg-[#ffa36a]/20 px-3 py-2">
+      <div className={`mt-2 rounded-lg ${boxColor} px-3 py-2`}>
         <p className="text-xs uppercase tracking-wide text-slate-500">Light intensity (KY-018)</p>
         <p className="text-xl font-semibold text-slate-900">{luxLabel}</p>
         <p className="mt-1 text-xs text-slate-500">Collected via KY-018 (LDR ADC) + MQTT /autogrow/sensors</p>

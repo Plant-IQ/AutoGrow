@@ -29,28 +29,28 @@ export default function Home() {
       </header>
 
       <main className="mx-auto flex max-w-6xl flex-col gap-6 px-6 py-8">
-        <div className="grid gap-4 md:grid-cols-3">
-          <div className="md:col-span-2 h-full">
+        <div className="grid items-stretch gap-4 md:grid-cols-2">
+          <div className="h-full">
             <GrowthStatus />
           </div>
-          <WeatherCard />
+          <ObsForm />
         </div>
 
-        <div className="grid gap-4 md:grid-cols-3 items-stretch">
+        <div className="grid items-stretch gap-4 md:grid-cols-3">
           <PumpStatus />
-          <div className="md:col-span-2 grid grid-cols-3 gap-4">
-          <div className="col-span-2 h-full">
-            <PlantLight />
-          </div>
+          <div className="grid grid-cols-3 gap-4 md:col-span-2">
+            <div className="col-span-2 h-full">
+              <PlantLight />
+            </div>
             <TempHumidityCard />
           </div>
-        <div className="md:col-span-3">
-          <SensorChart />
-        </div>
         </div>
 
-        <div className="grid gap-4">
-          <ObsForm />
+        <div className="grid items-stretch gap-4 md:grid-cols-3">
+          <WeatherCard />
+          <div className="md:col-span-2">
+            <SensorChart />
+          </div>
         </div>
       </main>
     </div>
