@@ -19,16 +19,11 @@ class StartGrowRequest(BaseModel):
     bloom_days: int = 0
 
 
-@router.get(
-    "/",
-    response_model=StageResponse,
-    summary="Current growth stage",
-    description="Returns current stage index/name and days elapsed in stage.",
-)
+@router.get("/", response_model=StageResponse)
 def get_stage(session: Session = Depends(get_session)):
     active = session.exec(
         select(PlantInstance)
-        .where(PlantInstance.is_active == True)  # noqa: E712
+        .where(PlantInstance.is_active == True)
         .order_by(PlantInstance.started_at.desc())
         .limit(1)
     ).first()
@@ -41,7 +36,7 @@ def get_stage(session: Session = Depends(get_session)):
 
     idx = min(active.current_stage_index, 2)
     label = ["Seed", "Veg", "Bloom"][idx]
-    days = max(1, (datetime.utcnow() - active.stage_started_at).days + 1)
+    days = max(1, (datetime.utcnow() - active.started_at).days + 1)
     return StageResponse(stage=idx, label=label, days_in_stage=days)
 
 @router.post(
@@ -55,23 +50,22 @@ def set_stage(payload: StageUpdate, session: Session = Depends(get_session)):
     return StageResponse(stage=payload.stage, label=payload.label, days_in_stage=1)
 
 
-@router.post(
-    "/reset",
-    summary="Reset to seed stage and start new grow cycle",
-    description="Resets to stage 0 (Seed), publishes state=0 via MQTT, and schedules state=1/2 after seed/veg days.",
-)
+@router.post("/reset")
 async def reset_stage(
     req: StartGrowRequest,
     background_tasks: BackgroundTasks,
     session: Session = Depends(get_session),
 ):
     upsert_stage(session, 0, "Seed")
-
     publish_stage_update(req.plant_id, 0)
+
+    plant = session.get(PlantInstance, req.plant_id)
+    started_at = plant.started_at if plant else datetime.utcnow()
 
     background_tasks.add_task(
         schedule_stage_transitions,
         req.plant_id,
+        started_at,
         req.seed_days,
         req.veg_days,
         req.bloom_days,

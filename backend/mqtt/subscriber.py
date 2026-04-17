@@ -3,9 +3,10 @@ import os
 
 import paho.mqtt.client as mqtt
 from dotenv import load_dotenv
+from sqlmodel import Session, select
 
 from db.influx import write_sensor
-from db.sqlite import record_sensor, record_sensor_combined
+from db.sqlite import PlantInstance, engine, record_sensor, record_sensor_combined
 
 load_dotenv()
 
@@ -14,9 +15,23 @@ TOPICS = {
     "autogrow/temp": ("climate", "temperature", "temp"),
     "autogrow/humidity": ("climate", "humidity", "humidity"),
     "autogrow/light": ("light", "lux", "light"),
-    "autogrow/vibration": ("pump", "vibration", None),  # not in SensorReading table
+    "autogrow/vibration": ("pump", "vibration", None),
 }
 SENSOR_TOPIC_SUFFIX = "/autogrow/sensors"
+
+
+def _get_active_stage() -> tuple[int, str]:
+    """ดึง stage จาก DB เสมอ — ไม่เชื่อ ESP32"""
+    with Session(engine) as s:
+        active = s.exec(
+            select(PlantInstance)
+            .where(PlantInstance.is_active == True)
+            .order_by(PlantInstance.started_at.desc())
+            .limit(1)
+        ).first()
+        stage = active.current_stage_index if active else 0
+    stage_name = ["Seed", "Veg", "Bloom"][min(stage, 2)]
+    return stage, stage_name
 
 
 def _record_combined_sensor(payload: dict):
@@ -29,15 +44,15 @@ def _record_combined_sensor(payload: dict):
     light = light_raw if light_raw is not None else payload.get("light")
     vibr = payload.get("vibration")
 
-    # ── field ใหม่จาก ESP32 ──────────────────────────────────
-    stage         = payload.get("stage")
-    stage_name    = payload.get("stage_name")
-    spectrum      = payload.get("spectrum")
-    pump_on       = payload.get("pump_on")
-    pump_status   = payload.get("pump_status")
-    light_hrs     = payload.get("light_hrs_today")
-    harvest_eta   = payload.get("harvest_eta_days")
-    health_score  = payload.get("health_score")
+    # ── stage จาก DB ไม่ใช่จาก ESP32 ──────────────────────────
+    stage, stage_name = _get_active_stage()
+
+    spectrum     = payload.get("spectrum")
+    pump_on      = payload.get("pump_on")
+    pump_status  = payload.get("pump_status")
+    light_hrs    = payload.get("light_hrs_today")
+    harvest_eta  = payload.get("harvest_eta_days")
+    health_score = payload.get("health_score")
 
     try:
         temp_val = (float(temp1) + float(temp2)) / 2 if (temp1 and temp2) else float(temp1 or temp2 or 0)
@@ -47,9 +62,8 @@ def _record_combined_sensor(payload: dict):
             humidity=float(humidity) if humidity is not None else 0.0,
             light=float(light) if light is not None else 0.0,
             vibration=float(vibr) if vibr is not None else 0.0,
-            # ── เพิ่มเข้าไป ──
-            stage=int(stage) if stage is not None else 0,
-            stage_name=stage_name or "",
+            stage=stage,
+            stage_name=stage_name,
             spectrum=spectrum or "",
             pump_on=bool(pump_on),
             pump_status=pump_status or "",
@@ -64,15 +78,14 @@ def _record_combined_sensor(payload: dict):
     if vibr is not None:
         try:
             write_sensor("pump", "vibration", float(vibr))
-            # เพิ่ม field อื่นใน InfluxDB ด้วย
-            if stage is not None:
-                write_sensor("autogrow", "stage", float(stage))
+            write_sensor("autogrow", "stage", float(stage))
             if health_score is not None:
                 write_sensor("autogrow", "health_score", float(health_score))
             if harvest_eta is not None:
                 write_sensor("autogrow", "harvest_eta_days", float(harvest_eta))
         except Exception as e:
             print(f"[MQTT] InfluxDB record error: {e}")
+
 
 def on_message(client, userdata, msg):
     topic = msg.topic
@@ -83,7 +96,6 @@ def on_message(client, userdata, msg):
         print(f"[MQTT] invalid JSON payload: {e}")
         return
 
-    # Legacy per-topic format
     if topic in TOPICS:
         measurement, field, sqlite_field = TOPICS[topic]
         try:
@@ -101,7 +113,6 @@ def on_message(client, userdata, msg):
 
         print(f"[MQTT] {topic} → {value}")
 
-    # New combined JSON payload from ESP32
     elif topic.endswith(SENSOR_TOPIC_SUFFIX):
         _record_combined_sensor(payload)
         print(f"[MQTT] combined payload saved for {topic}")
@@ -125,7 +136,6 @@ def start_subscriber():
         )
         client.on_message = on_message
 
-        # ── เพิ่ม on_connect เพื่อ subscribe หลัง connect สำเร็จ ──
         def on_connect(client, userdata, flags, rc, props=None):
             print(f"[MQTT] Connected rc={rc}")
             for topic in TOPICS:

@@ -45,9 +45,8 @@ def publish_stage_update(plant_id: int, stage: int):
     pwd = os.getenv("MQTT_PASS")
     auth = {"username": user, "password": pwd} if user and pwd else None
 
-    # ใช้ MQTT_USER นำหน้า topic ให้ตรงกับที่ ESP32 subscribe ไว้
     topic = f"{user}/autogrow/cmd"        # b6710545652/autogrow/cmd
-    payload = json.dumps({"stage": stage})  # key เป็น "stage" ตรงกับ on_mqtt_message ใน ESP32
+    payload = json.dumps({"stage": stage}) 
     try:
         publish.single(topic, payload, hostname=broker, port=int(port), auth=auth)
         print(f"[MQTT] Published stage={stage} → {topic}")

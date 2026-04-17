@@ -39,13 +39,12 @@ def upsert_stage(session: Session, stage_index: int, stage_name: str):
     session.commit()
 
 
-def _update_plant_stage(plant_id: int, stage: int) -> None:
-    """Update current_stage_index in DB so dashboard reflects the new stage."""
+def _update_plant_stage(plant_id: int, stage: int, stage_started_at: datetime) -> None:
     with Session(engine) as session:
         plant = session.get(PlantInstance, plant_id)
         if plant:
             plant.current_stage_index = stage
-            plant.stage_started_at = datetime.utcnow()
+            plant.stage_started_at = stage_started_at
             session.add(plant)
             session.commit()
 
@@ -65,7 +64,7 @@ async def schedule_stage_transitions(
     wait_veg = (veg_start - now).total_seconds()
     if wait_veg > 0:
         await asyncio.sleep(wait_veg)
-    _update_plant_stage(plant_id, 1)
+    _update_plant_stage(plant_id, 1, veg_start)
     publish_stage_update(plant_id, 1)
     print(f"[Stage] plant_id={plant_id} → stage 1 (Veg)")
 
@@ -74,6 +73,6 @@ async def schedule_stage_transitions(
         remaining = wait_bloom - max(0, wait_veg)
         if remaining > 0:
             await asyncio.sleep(remaining)
-        _update_plant_stage(plant_id, 2)
+        _update_plant_stage(plant_id, 2, bloom_start)
         publish_stage_update(plant_id, 2)
         print(f"[Stage] plant_id={plant_id} → stage 2 (Bloom)")

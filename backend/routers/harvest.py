@@ -23,8 +23,8 @@ def get_harvest_eta(session: Session = Depends(get_session)):
         return HarvestETAResponse(days_to_harvest=0, projected_date=datetime.utcnow())
 
     # stage_durations_days = [seed_days, veg_days, bloom_days]
-    total_days = sum(plant_type.stage_durations_days)  # เช่น 3+4+0 = 7
-    elapsed = (datetime.utcnow() - plant.stage_started_at).days
+    total_days = sum(plant_type.stage_durations_days)
+    elapsed = (datetime.utcnow() - plant.started_at).days
     days_remaining = max(0, total_days - elapsed)
 
     return HarvestETAResponse(

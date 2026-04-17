@@ -245,7 +245,13 @@ MYSQL_URL = os.getenv(
     "MYSQL_URL",
     "mysql+pymysql://b6710545652:natcha.limsu@ku.th@iot.cpe.ku.ac.th:3306/b6710545652"
 )
-mysql_engine = create_engine(MYSQL_URL)
+
+mysql_engine = create_engine(
+    MYSQL_URL,
+    pool_size=2, 
+    max_overflow=1, 
+    pool_recycle=300
+)
 
 def get_mysql_session():
     with Session(mysql_engine) as session:
