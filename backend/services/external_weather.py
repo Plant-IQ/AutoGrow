@@ -16,7 +16,7 @@ from db.sqlite import WeatherCache
 
 DEFAULT_LAT = float(os.getenv("DEFAULT_LAT", 0) or 0)
 DEFAULT_LON = float(os.getenv("DEFAULT_LON", 0) or 0)
-WEATHER_CACHE_TTL_SECONDS = int(os.getenv("WEATHER_CACHE_TTL", 1800))  # 30 minutes
+WEATHER_CACHE_TTL_SECONDS = int(os.getenv("WEATHER_CACHE_TTL", 900))  # 15 minutes
 OWM_API_KEY = os.getenv("OWM_API_KEY", "")
 
 
