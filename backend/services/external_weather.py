@@ -4,8 +4,9 @@ from __future__ import annotations
 
 import json
 import os
+from collections import defaultdict
 from datetime import datetime, timedelta, timezone
-from typing import Any, Dict, Optional
+from typing import Optional
 
 import httpx
 from sqlmodel import Session
@@ -106,6 +107,45 @@ def fetch_open_meteo(lat: float, lon: float) -> dict:
         return _normalize_from_open_meteo(resp.json(), lat, lon)
 
 
+def fetch_open_meteo_history(lat: float, lon: float, past_days: int = 7) -> dict:
+    url = "https://api.open-meteo.com/v1/forecast"
+    params = {
+        "latitude": lat,
+        "longitude": lon,
+        "hourly": "temperature_2m,relative_humidity_2m",
+        "past_days": max(1, min(past_days, 14)),
+        "forecast_days": 1,
+        "timezone": "UTC",
+    }
+    with httpx.Client(timeout=10) as client:
+        resp = client.get(url, params=params)
+        resp.raise_for_status()
+        raw = resp.json()
+
+    hourly = raw.get("hourly", {})
+    times = hourly.get("time", [])
+    temps = hourly.get("temperature_2m", [])
+    humidities = hourly.get("relative_humidity_2m", [])
+    points = []
+
+    for ts, temp, humidity in zip(times, temps, humidities):
+        points.append(
+            {
+                "ts": ts,
+                "temp": temp,
+                "humidity": humidity,
+            }
+        )
+
+    return {
+        "source": "open-meteo",
+        "lat": lat,
+        "lon": lon,
+        "points": points,
+        "fetched_at": _now_utc().isoformat(),
+    }
+
+
 def fetch_openweather(lat: float, lon: float) -> dict:
     if not OWM_API_KEY:
         raise RuntimeError("OWM_API_KEY is not configured")
@@ -166,3 +206,58 @@ def get_weather_bundle(session: Session, lat: Optional[float], lon: Optional[flo
         return cached
 
     raise RuntimeError(last_error or "No weather providers reachable")
+
+
+def get_outdoor_history(session: Session, lat: Optional[float], lon: Optional[float], past_days: int = 7) -> dict:
+    lat = lat if lat is not None else DEFAULT_LAT
+    lon = lon if lon is not None else DEFAULT_LON
+    if lat == 0 and lon == 0:
+        raise RuntimeError("Latitude/longitude required; set DEFAULT_LAT/DEFAULT_LON or pass lat/lon params")
+
+    key = f"outdoor-history:{lat:.3f}:{lon:.3f}:{past_days}"
+    cached = _cache_get(session, key)
+    if cached:
+        return cached
+
+    data = fetch_open_meteo_history(lat, lon, past_days=past_days)
+    return _cache_set(session, key, data)
+
+
+def get_outdoor_daily_avg(session: Session, lat: Optional[float], lon: Optional[float], past_days: int = 7) -> dict:
+    history = get_outdoor_history(session, lat, lon, past_days=past_days)
+
+    grouped: dict[str, dict[str, float]] = defaultdict(lambda: {"temp_sum": 0.0, "humidity_sum": 0.0, "count": 0.0})
+    for point in history.get("points", []):
+        ts = point.get("ts")
+        if not ts:
+            continue
+        date_key = str(ts)[:10]
+        bucket = grouped[date_key]
+        temp = point.get("temp")
+        humidity = point.get("humidity")
+        if isinstance(temp, (int, float)):
+            bucket["temp_sum"] += float(temp)
+        if isinstance(humidity, (int, float)):
+            bucket["humidity_sum"] += float(humidity)
+        bucket["count"] += 1.0
+
+    points = []
+    for date_key in sorted(grouped.keys()):
+        bucket = grouped[date_key]
+        if bucket["count"] <= 0:
+          continue
+        points.append(
+            {
+                "date": date_key,
+                "avg_temp": bucket["temp_sum"] / bucket["count"],
+                "avg_humidity": bucket["humidity_sum"] / bucket["count"],
+            }
+        )
+
+    return {
+        "source": history.get("source", "open-meteo"),
+        "lat": history.get("lat"),
+        "lon": history.get("lon"),
+        "points": points,
+        "fetched_at": history.get("fetched_at"),
+    }

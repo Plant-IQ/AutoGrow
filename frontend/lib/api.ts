@@ -7,6 +7,8 @@ async function fetchJson(path: string, base: string) {
   return res.json();
 }
 
+export const realFetcher = async (path: string) => fetchJson(path, REAL_BASE);
+
 export const fetcher = async (path: string) => {
   try {
     const data = await fetchJson(path, REAL_BASE);
@@ -98,6 +100,63 @@ function inlineMock(path: string): unknown {
     };
   });
 
+  const soilMoistureReadings = Array.from({ length: 32 }).map((_, i) => {
+    const ts = new Date(now - (31 - i) * 45 * 60 * 1000).toISOString();
+    return {
+      ts,
+      value: 36 + Math.sin(i / 4) * 8 + (i % 5 === 0 ? -3 : 0),
+    };
+  });
+
+  const outdoorHumidityReadings = Array.from({ length: 34 }).map((_, i) => {
+    const ts = new Date(now - (33 - i) * 42 * 60 * 1000).toISOString();
+    return {
+      ts,
+      value: 58 + Math.cos(i / 5) * 10,
+    };
+  });
+
+  const glasshouseTemperatureReadings = Array.from({ length: 32 }).map((_, i) => {
+    const ts = new Date(now - (31 - i) * 45 * 60 * 1000).toISOString();
+    return {
+      ts,
+      value: 28 + Math.sin(i / 4) * 2.8 + (i % 6 === 0 ? 1.1 : 0),
+    };
+  });
+
+  const outdoorTemperatureReadings = Array.from({ length: 34 }).map((_, i) => {
+    const ts = new Date(now - (33 - i) * 42 * 60 * 1000).toISOString();
+    return {
+      ts,
+      value: 26 + Math.cos(i / 5) * 3.1,
+    };
+  });
+
+  const glasshouseDailyAverages = Array.from({ length: 10 }).map((_, i) => {
+    const day = new Date(now - (9 - i) * 24 * 60 * 60 * 1000);
+    return {
+      date: day.toISOString(),
+      avg_temp: 26.4 + Math.sin(i / 3) * 1.6,
+      avg_humidity: 61 + Math.cos(i / 3) * 5.5,
+    };
+  });
+
+  const outdoorDailyAverages = Array.from({ length: 10 }).map((_, i) => {
+    const day = new Date(now - (9 - i) * 24 * 60 * 60 * 1000);
+    return {
+      date: day.toISOString(),
+      avg_temp: 24.8 + Math.cos(i / 3) * 1.9,
+    };
+  });
+
+  const pumpVibrationReadings = Array.from({ length: 32 }).map((_, i) => {
+    const ts = new Date(now - (31 - i) * 45 * 60 * 1000).toISOString();
+    return {
+      ts,
+      value: i % 7 === 0 ? 0.18 : 0,
+    };
+  });
+
   const map: Record<string, unknown> = {
     "/plants/active": plant,
     "/plants": [plant],
@@ -123,6 +182,23 @@ function inlineMock(path: string): unknown {
       sunset_utc: new Date().toISOString(),
       source: "openweathermap",
     },
+    "/api/readings?field=soil_moisture": {
+      points: soilMoistureReadings,
+    },
+    "/api/outdoor?field=humidity": {
+      points: outdoorHumidityReadings,
+    },
+    "/api/readings?field=temperature": {
+      points: glasshouseTemperatureReadings,
+    },
+    "/api/readings?field=pump_vibration": {
+      points: pumpVibrationReadings,
+    },
+    "/api/outdoor?field=temp": {
+      points: outdoorTemperatureReadings,
+    },
+    "/api/readings/daily-avg": glasshouseDailyAverages,
+    "/api/outdoor/daily-avg": outdoorDailyAverages,
     "/plants/1/light": { plant_id: 1, stage: 1, color: "#aafc9d", pending_confirm: false },
   };
 

@@ -12,7 +12,7 @@
 
 from datetime import datetime
 from typing import Optional
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlmodel import Session, SQLModel, Field, select, create_engine
 from sqlalchemy.engine import URL
 from models import HistoryResponse, HistoryPoint
@@ -57,7 +57,13 @@ class AutogrowReading(SQLModel, table=True):
     health_score: int = 0
 
 @router.get("/", response_model=HistoryResponse)
-def get_history(session: Session = Depends(get_mysql_session)):
+def get_history(
+    until_stage: str | None = Query(
+        None,
+        description="If provided, trims off any newer rows after the most recent row with this stage name.",
+    ),
+    session: Session = Depends(get_mysql_session),
+):
     rows = session.exec(
         select(AutogrowReading)
         .order_by(AutogrowReading.ts.desc())
@@ -66,6 +72,12 @@ def get_history(session: Session = Depends(get_mysql_session)):
 
     if not rows:
         return HistoryResponse(points=[])
+
+    if until_stage:
+        normalized_stage = until_stage.strip().lower()
+        cutoff_row = next((row for row in rows if (row.stage_name or "").strip().lower() == normalized_stage), None)
+        if cutoff_row is not None:
+            rows = [row for row in rows if row.ts <= cutoff_row.ts]
 
     pts = [
         HistoryPoint(

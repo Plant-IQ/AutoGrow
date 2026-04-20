@@ -11,7 +11,9 @@ import {
   Legend,
 } from "recharts";
 
-import { fetcher } from "@/lib/api";
+import { realFetcher } from "@/lib/api";
+
+const HISTORY_PATH = "/history?until_stage=Veg";
 
 type HistoryPoint = {
   ts: string;
@@ -31,8 +33,8 @@ function formatTs(ts: string) {
 }
 
 export default function SensorChart() {
-  const { data: activePlant, isLoading: loadingActive } = useSWR<ActivePlant | null>("/plants/active", fetcher);
-  const { data, isLoading, error } = useSWR<HistoryResponse>("/history", fetcher, {
+  const { data: activePlant, isLoading: loadingActive } = useSWR<ActivePlant | null>("/plants/active", realFetcher);
+  const { data, isLoading, error } = useSWR<HistoryResponse>(HISTORY_PATH, realFetcher, {
     refreshInterval: 60000,
   });
 

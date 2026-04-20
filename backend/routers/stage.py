@@ -28,7 +28,7 @@ def get_stage(session: Session = Depends(get_session)):
         .limit(1)
     ).first()
     if not active:
-        return StageResponse(stage=0, label="", days_in_stage=0)
+        return StageResponse(stage=-1, label="Harvested", days_in_stage=0)
 
     plant_type = session.get(PlantType, active.plant_type_id)
     if not plant_type:

@@ -5,6 +5,11 @@ import TempHumidityCard from "@/components/GlasshouseCard";
 import WeatherCard from "@/components/OutdoorDataCard";
 import Image from "next/image";
 import GrowthStatus from "@/components/GrowthStatus";
+import SoilHumidityScatter from "@/components/SoilHumidityScatter";
+import TemperatureComparisonScatter from "@/components/TemperatureComparisonScatter";
+import DailyTempHumidityComparisonBarChart from "@/components/DailyTempHumidityComparisonBarChart";
+import SoilMoisturePumpChart from "@/components/SoilMoisturePumpChart";
+import DataSharingApiCard from "@/components/DataSharingApiCard";
 
 export default function Home() {
   return (
@@ -45,6 +50,26 @@ export default function Home() {
 
         <div className="grid items-stretch gap-4 md:grid-cols-1">
           <SensorChart />
+        </div>
+
+        <div className="grid items-stretch gap-4 md:grid-cols-1">
+          <SoilHumidityScatter />
+        </div>
+
+        <div className="grid items-stretch gap-4 md:grid-cols-1">
+          <TemperatureComparisonScatter />
+        </div>
+
+        <div className="grid items-stretch gap-4 md:grid-cols-1">
+          <DailyTempHumidityComparisonBarChart />
+        </div>
+
+        <div className="grid items-stretch gap-4 md:grid-cols-1">
+          <SoilMoisturePumpChart />
+        </div>
+
+        <div className="grid items-stretch gap-4 md:grid-cols-1">
+          <DataSharingApiCard />
         </div>
       </main>
     </div>
