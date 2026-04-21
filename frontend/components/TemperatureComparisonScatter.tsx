@@ -184,7 +184,7 @@ export default function TemperatureComparisonScatter() {
     isLoading: outdoorLoading,
     error: outdoorError,
   } = useSWR<OutdoorHistoryResponse>(`/outdoor/history?lat=${DEFAULT_LAT}&lon=${DEFAULT_LON}&past_days=7`, fetcher, {
-    refreshInterval: 5 * 60_000,
+    refreshInterval: 60 * 60 * 1000,
   });
 
   if (glasshouseLoading || outdoorLoading) return <div className="card">Loading temperature correlation…</div>;

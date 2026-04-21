@@ -4,10 +4,12 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlmodel import Session, select
 
-from db.sqlite import PlantInstance, PlantType, engine, init_db
+from db.sqlite import PlantInstance, PlantType, engine, init_db, init_mysql_tables
 from mqtt.subscriber import start_subscriber
 from routers import context, harvest, health, history, light, observations, pump, stage, targets
 from routers import plants
+from seed_data import seed_plant_catalog_from_csv
+from services.external_weather import backfill_weather_cache_to_mysql
 from services.stage_engine import schedule_stage_transitions
 
 app = FastAPI(title="AutoGrow API", version="1.0.0")
@@ -64,6 +66,12 @@ async def resume_stage_tasks() -> None:
 @app.on_event("startup")
 async def startup() -> None:
     init_db()
+    seed_plant_catalog_from_csv()
+    init_mysql_tables()
+    migrated = backfill_weather_cache_to_mysql()
+    print(
+        f"[MySQL] Weather backfill complete: current={migrated['current']}, history={migrated['history']}"
+    )
     start_subscriber()
     plants.sync_plants_now()
     plants.start_pending_refresher()

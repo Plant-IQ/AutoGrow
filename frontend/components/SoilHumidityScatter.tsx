@@ -170,7 +170,7 @@ export default function SoilHumidityScatter() {
     isLoading: outdoorLoading,
     error: outdoorError,
   } = useSWR<OutdoorHistoryResponse>(`/outdoor/history?lat=${DEFAULT_LAT}&lon=${DEFAULT_LON}&past_days=7`, realFetcher, {
-    refreshInterval: 5 * 60_000,
+    refreshInterval: 60 * 60 * 1000,
   });
 
   if (soilLoading || outdoorLoading) return <div className="card">Loading soil and outdoor correlation…</div>;

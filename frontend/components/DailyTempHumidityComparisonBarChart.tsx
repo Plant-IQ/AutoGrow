@@ -124,7 +124,7 @@ export default function DailyTempHumidityComparisonBarChart() {
     isLoading: outdoorLoading,
     error: outdoorError,
   } = useSWR<OutdoorDailyResponse>(`/outdoor/daily-avg?lat=${DEFAULT_LAT}&lon=${DEFAULT_LON}&past_days=7`, realFetcher, {
-    refreshInterval: 5 * 60_000,
+    refreshInterval: 60 * 60 * 1000,
   });
 
   if (glasshouseLoading || outdoorLoading) return <div className="card">Loading daily comparisons…</div>;

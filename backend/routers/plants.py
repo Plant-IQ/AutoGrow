@@ -22,13 +22,35 @@ alias_router = APIRouter()
 
 @router.get("/types", response_model=list[PlantTypeOut])
 def list_types(session: Session = Depends(get_session)):
-    return session.exec(select(PlantType)).all()
+    rows = session.exec(select(PlantType).order_by(PlantType.name)).all()
+    unique_rows: list[PlantType] = []
+    seen: set[str] = set()
+    for row in rows:
+        key = row.name.strip().lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        unique_rows.append(row)
+    return unique_rows
 
 
 @router.post("/types", response_model=PlantTypeOut)
 def create_type(payload: PlantTypeIn, session: Session = Depends(get_session)):
+    existing = session.exec(
+        select(PlantType).where(func.lower(PlantType.name) == payload.name.strip().lower())
+    ).first()
+    if existing:
+        existing.stage_durations_days = payload.stage_durations_days
+        existing.stage_colors = payload.stage_colors
+        session.add(existing)
+        session.commit()
+        session.refresh(existing)
+        return existing
+
     row = PlantType(**payload.model_dump())
-    session.add(row); session.commit(); session.refresh(row)
+    session.add(row)
+    session.commit()
+    session.refresh(row)
     return row
 
 

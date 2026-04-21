@@ -9,7 +9,6 @@ type ApiRow = {
 const apiRows: ApiRow[] = [
   { method: "GET", endpoint: "/plants/active", description: "Get active plant info" },
   { method: "GET", endpoint: "/plants", description: "List current plant sessions" },
-  { method: "GET", endpoint: "/plants/", description: "List current plant sessions" },
   { method: "GET", endpoint: "/stage", description: "Get current growth stage summary" },
   { method: "GET", endpoint: "/harvest-eta", description: "Get projected harvest timing" },
   { method: "GET", endpoint: "/plant-types", description: "Get available plant type templates" },

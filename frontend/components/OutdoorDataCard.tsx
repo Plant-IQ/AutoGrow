@@ -14,7 +14,7 @@ export default function WeatherCard() {
   const { data, isLoading, error } = useSWR<WeatherContext>(
     `/context/weather?lat=${DEFAULT_LAT}&lon=${DEFAULT_LON}`,
     fetcher,
-    { refreshInterval: 15 * 60 * 1000 }
+    { refreshInterval: 60 * 60 * 1000 }
   );
 
   if (isLoading) return <div className="card">Loading weather…</div>;

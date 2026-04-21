@@ -1,6 +1,14 @@
+import csv
 from datetime import datetime, timedelta
-from db.sqlite import engine, SensorReading, PlantType, PlantTypeTarget, init_db
+from pathlib import Path
+
 from sqlmodel import Session, select
+
+from db.sqlite import engine, SensorReading, PlantType, PlantTypeTarget, init_db
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+PLANT_TARGETS_CSV = BASE_DIR / "data" / "plant_targets.csv"
+DEFAULT_STAGE_COLORS = ["#4DA6FF", "#FFFFFF", "#FF6FA3"]
 
 def seed_sensor_data():
     
@@ -63,7 +71,77 @@ def seed_default_targets():
             print("ℹ️ Default targets already present")
 
 
+def seed_plant_catalog_from_csv(csv_path: Path = PLANT_TARGETS_CSV) -> int:
+    """Sync plant catalog + target ranges from the CSV master list."""
+    if not csv_path.exists():
+        print(f"⚠️ Plant target catalog not found: {csv_path}")
+        return 0
+
+    synced = 0
+    with csv_path.open(newline="", encoding="utf-8") as f:
+        rows = list(csv.DictReader(f))
+
+    with Session(engine) as session:
+        existing_types = session.exec(select(PlantType)).all()
+        by_name = {}
+        for plant_type in sorted(existing_types, key=lambda row: row.id or 0):
+            key = plant_type.name.strip().lower()
+            if key not in by_name:
+                by_name[key] = plant_type
+
+        for raw in rows:
+            name = (raw.get("name") or "").strip()
+            if not name:
+                continue
+
+            durations = [
+                int(raw["stage_seed_days"]),
+                int(raw["stage_veg_days"]),
+                int(raw["stage_bloom_days"]),
+            ]
+            key = name.lower()
+            plant_type = by_name.get(key)
+
+            if plant_type is None:
+                plant_type = PlantType(
+                    name=name,
+                    stage_durations_days=durations,
+                    stage_colors=list(DEFAULT_STAGE_COLORS),
+                )
+                session.add(plant_type)
+                session.commit()
+                session.refresh(plant_type)
+                by_name[key] = plant_type
+            else:
+                plant_type.name = name
+                plant_type.stage_durations_days = durations
+                if not plant_type.stage_colors or len(plant_type.stage_colors) != 3:
+                    plant_type.stage_colors = list(DEFAULT_STAGE_COLORS)
+                session.add(plant_type)
+                session.commit()
+
+            target = session.exec(
+                select(PlantTypeTarget).where(PlantTypeTarget.plant_type_id == plant_type.id)
+            ).first()
+            if target is None:
+                target = PlantTypeTarget(plant_type_id=plant_type.id)
+
+            target.temp_min_c = float(raw["temp_min_c"])
+            target.temp_max_c = float(raw["temp_max_c"])
+            target.humidity_min = float(raw["humidity_min"])
+            target.humidity_max = float(raw["humidity_max"])
+            target.light_min_lux = float(raw["light_min_lux"])
+            target.light_max_lux = float(raw["light_max_lux"])
+            session.add(target)
+            session.commit()
+            synced += 1
+
+    print(f"✅ Synced {synced} plant catalog entries from {csv_path.name}")
+    return synced
+
+
 if __name__ == "__main__":
     init_db()
     seed_sensor_data()
     seed_default_targets()
+    seed_plant_catalog_from_csv()
