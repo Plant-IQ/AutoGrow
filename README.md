@@ -1,6 +1,6 @@
 <h1 style="display: flex; align-items: center; gap: 12px;">
   <img src="frontend/public/assets/logos/AutoGrow_squared.png" alt="AutoGrow_squared" width="56" style="display: block;" />
-  <span style="font-size: 1.35em;">AutoGrow</span>
+  <span style="font-size: 1.75em;">AutoGrow</span>
 </h1>
 
 AutoGrow is an IoT-enabled plant lifecycle management platform for controlled growing environments (for example, glasshouse and indoor farming). It combines live sensor telemetry, stage-aware automation logic, outdoor weather context, and a web dashboard for monitoring and decision support.
