@@ -1,84 +1,137 @@
 [
-  {
-    "id": "autogrow_tab_1",
-    "type": "tab",
-    "label": "AutoGrow Flow",
-    "disabled": false,
-    "info": "Starter flow for AutoGrow MQTT ingestion"
-  },
-  {
-    "id": "mqtt_in_combined",
-    "type": "mqtt in",
-    "z": "autogrow_tab_1",
-    "name": "Combined Sensor In",
-    "topic": "b6710545652/autogrow/sensors",
-    "qos": "0",
-    "datatype": "auto",
-    "broker": "mqtt_broker_cfg",
-    "nl": false,
-    "rap": true,
-    "rh": 0,
-    "inputs": 0,
-    "x": 170,
-    "y": 120,
-    "wires": [["json_parse_1"]]
-  },
-  {
-    "id": "json_parse_1",
-    "type": "json",
-    "z": "autogrow_tab_1",
-    "name": "Parse JSON",
-    "property": "payload",
-    "action": "",
-    "pretty": false,
-    "x": 370,
-    "y": 120,
-    "wires": [["debug_payload_1"]]
-  },
-  {
-    "id": "debug_payload_1",
-    "type": "debug",
-    "z": "autogrow_tab_1",
-    "name": "Payload",
-    "active": true,
-    "tosidebar": true,
-    "console": false,
-    "tostatus": false,
-    "complete": "payload",
-    "targetType": "msg",
-    "x": 560,
-    "y": 120,
-    "wires": []
-  },
-  {
-    "id": "mqtt_broker_cfg",
-    "type": "mqtt-broker",
-    "name": "AutoGrow Broker",
-    "broker": "localhost",
-    "port": "1883",
-    "clientid": "",
-    "autoConnect": true,
-    "usetls": false,
-    "protocolVersion": "4",
-    "keepalive": "60",
-    "cleansession": true,
-    "autoUnsubscribe": true,
-    "birthTopic": "",
-    "birthQos": "0",
-    "birthRetain": "false",
-    "birthPayload": "",
-    "birthMsg": {},
-    "closeTopic": "",
-    "closeQos": "0",
-    "closeRetain": "false",
-    "closePayload": "",
-    "closeMsg": {},
-    "willTopic": "",
-    "willQos": "0",
-    "willRetain": "false",
-    "willPayload": "",
-    "willMsg": {},
-    "userProps": "",
-    "sessionExpiry": ""
-  }
+    {
+        "id": "73cc016668987089",
+        "type": "tab",
+        "label": "Flow 3",
+        "disabled": false,
+        "info": "",
+        "env": []
+    },
+    {
+        "id": "d8a52801f71b4251",
+        "type": "mqtt in",
+        "z": "73cc016668987089",
+        "name": "",
+        "topic": "b6710545652/autogrow/sensors",
+        "qos": "0",
+        "datatype": "auto-detect",
+        "broker": "694bd86267a917f6",
+        "nl": false,
+        "rap": true,
+        "rh": 0,
+        "inputs": 0,
+        "x": 250,
+        "y": 340,
+        "wires": [
+            [
+                "adb98c96646a6d80"
+            ]
+        ]
+    },
+    {
+        "id": "adb98c96646a6d80",
+        "type": "json",
+        "z": "73cc016668987089",
+        "name": "",
+        "property": "payload",
+        "action": "obj",
+        "pretty": false,
+        "x": 470,
+        "y": 340,
+        "wires": [
+            [
+                "b5a7133ceb9437fe",
+                "4b8d3c5ed3509770"
+            ]
+        ]
+    },
+    {
+        "id": "b5a7133ceb9437fe",
+        "type": "function",
+        "z": "73cc016668987089",
+        "name": "function 4",
+        "func": "var p = msg.payload;\n\nfunction safeFloat(val) {\n    var f = parseFloat(val);\n    return isNaN(f) ? 0.0 : f;\n}\nfunction safeInt(val) {\n    var i = parseInt(val);\n    return isNaN(i) ? 0 : i;\n}\n\nmsg.topic = \"INSERT INTO Autogrow \" +\n    \"(stage, stage_name, spectrum, temp1, temp2, humidity, soil_pct, \" +\n    \" light_lux, vibration, pump_on, pump_status, light_hrs_today, harvest_eta_days, health_score) \" +\n    \"VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)\";\n\nmsg.payload = [\n    safeInt(p.stage),\n    String(p.stage_name || ''),\n    String(p.spectrum || ''),\n    safeFloat(p.temp1),\n    safeFloat(p.temp2),\n    safeFloat(p.humidity),\n    safeFloat(p.soil_pct),\n    safeFloat(p.light_lux),\n    p.vibration ? 1 : 0,\n    p.pump_on ? 1 : 0,\n    String(p.pump_status || ''),\n    safeFloat(p.light_hrs_today),\n    safeFloat(p.harvest_eta_days),\n    safeFloat(p.health_score)\n];\n\nreturn msg;",
+        "outputs": 1,
+        "timeout": 0,
+        "noerr": 0,
+        "initialize": "",
+        "finalize": "",
+        "libs": [],
+        "x": 620,
+        "y": 340,
+        "wires": [
+            [
+                "d59d4e4a38e4586e"
+            ]
+        ]
+    },
+    {
+        "id": "d59d4e4a38e4586e",
+        "type": "mysql",
+        "z": "73cc016668987089",
+        "mydb": "6dbeb366e29e610e",
+        "name": "",
+        "x": 800,
+        "y": 340,
+        "wires": [
+            []
+        ]
+    },
+    {
+        "id": "4b8d3c5ed3509770",
+        "type": "debug",
+        "z": "73cc016668987089",
+        "name": "debug 6",
+        "active": true,
+        "tosidebar": true,
+        "console": false,
+        "tostatus": false,
+        "complete": "false",
+        "statusVal": "",
+        "statusType": "auto",
+        "x": 620,
+        "y": 440,
+        "wires": []
+    },
+    {
+        "id": "694bd86267a917f6",
+        "type": "mqtt-broker",
+        "name": "",
+        "broker": "iot.cpe.ku.ac.th",
+        "port": 1883,
+        "clientid": "",
+        "autoConnect": true,
+        "usetls": false,
+        "protocolVersion": 4,
+        "keepalive": 60,
+        "cleansession": true,
+        "autoUnsubscribe": true,
+        "birthTopic": "",
+        "birthQos": "0",
+        "birthRetain": "false",
+        "birthPayload": "",
+        "birthMsg": {},
+        "closeTopic": "",
+        "closeQos": "0",
+        "closeRetain": "false",
+        "closePayload": "",
+        "closeMsg": {},
+        "willTopic": "",
+        "willQos": "0",
+        "willRetain": "false",
+        "willPayload": "",
+        "willMsg": {},
+        "userProps": "",
+        "sessionExpiry": ""
+    },
+    {
+        "id": "6dbeb366e29e610e",
+        "type": "MySQLdatabase",
+        "name": "iot.cpe.ku.ac.th",
+        "host": "iot.cpe.ku.ac.th",
+        "port": "3306",
+        "db": "b6710545652",
+        "tz": "",
+        "charset": "UTF8"
+    }
 ]
