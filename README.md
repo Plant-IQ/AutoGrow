@@ -21,13 +21,12 @@ Affiliation: Department of Computer Engineering, Faculty of Engineering, Kasetsa
 
 ## Project Objective
 
-Aligned with the project presentation (`Auto.pdf`), AutoGrow has two primary objectives:
 
-1. Autonomous resource optimization.
-Automate water and light actions using live telemetry plus growth-stage context to reduce manual intervention.
+### Autonomous resource optimization. ###
+- Automate water and light actions using live telemetry plus growth-stage context to reduce manual intervention.
 
-2. Data-driven actionable insights.
-Transform raw sensor streams into practical outputs such as Health Score and Harvest ETA so users can make decisions quickly.
+### Data-driven actionable insights. ###
+- Transform raw sensor streams into practical outputs such as Health Score and Harvest ETA so users can make decisions quickly.
 
 ## Project Purpose
 
