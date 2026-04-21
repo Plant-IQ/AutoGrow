@@ -7,6 +7,18 @@ This repository includes:
 - A Next.js dashboard for monitoring, visualization, and grow-session actions.
 - CSV-based target datasets and helper scripts for bootstrapping plant profiles.
 
+## Project Links
+
+- Presentation video: https://youtu.be/RDtag0Lpw2A
+- GitHub repository: https://github.com/Plant-IQ/AutoGrow
+
+## Project Members
+
+- 6710545580 Napat Kulnarong
+- 6710545652 Natcha Limsuwan
+
+Affiliation: Department of Computer Engineering, Faculty of Engineering, Kasetsart University (Software and Knowledge Engineering).
+
 ## Project Objective
 
 Aligned with the project presentation (`Auto.pdf`), AutoGrow has two primary objectives:
